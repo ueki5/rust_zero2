@@ -2,6 +2,7 @@ mod engine;
 mod helper;
 
 use clap::Parser;
+use engine::do_matching;
 use engine::parser::parse;
 use engine::parser::AST;
 use helper::DynError;
@@ -42,8 +43,8 @@ fn main() -> Result<(), DynError> {
 /// - d
 fn match_file(expr: &str, input: &str) -> Result<(), DynError> {
     // 正規表現を解析
-    let ast = parse(expr);
-    println!("{}", ast.unwrap());
+    let ast = parse(expr)?;
+    println!("{}", ast);
 
     let f = File::open(input)?;
     let reader = BufReader::new(f);
@@ -54,10 +55,10 @@ fn match_file(expr: &str, input: &str) -> Result<(), DynError> {
     for line in reader.lines() {
         let line = line?;
         for (i, _) in line.char_indices() {
-            // if engine::do_matching(expr, &line[i..], true)? {
-            //     println!("{line}");
-            //     break;
-            // }
+            if engine::do_matching(&ast, &line[i..], true)? {
+                println!("{line}");
+                break;
+            }
         }
     }
     Ok(())
