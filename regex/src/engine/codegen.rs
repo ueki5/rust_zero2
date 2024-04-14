@@ -41,14 +41,22 @@ pub fn get_code(ast: &AST) -> Result<Vec<Instruction>, CodeGenError> {
 impl Generator {
     /// コード生成を行う関数の入り口
     fn gen_code(&mut self, ast: &AST) -> Result<(), CodeGenError> {
-        // self.gen_expr(ast)?;
-        // self.inc_pc()?;
-        // self.insts.push(Instruction::Match);
+        self.gen_expr(ast)?;
+        self.inc_pc()?;
+        self.insts.push(Instruction::Match);
         Ok(())
     }
 
     /// ASTをパターン分けしコード生成を行う関数
     fn gen_expr(&mut self, ast: &AST) -> Result<(), CodeGenError> {
+        match ast {
+            AST::Char(c) => self.gen_char(*c)?,
+            AST::Or(e1, e2) => self.gen_or(e1, e2)?,
+            AST::Question(e) => self.gen_question(e)?,
+            AST::Plus(e) => self.gen_plus(e)?,
+            AST::Star(e) => self.gen_star(e)?,
+            AST::Seq(e) => self.gen_seq(e)?,
+        }
         // match ast {
         //     AST::Char(c) => self.gen_char(*c)?,
         //     AST::Or(e1, e2) => self.gen_or(e1, e2)?,

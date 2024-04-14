@@ -10,7 +10,7 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-/// 正規表現評価
+/// 正規表現を評価する
 #[derive(Parser)]
 struct Args {
     /// 検索パターン
