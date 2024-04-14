@@ -108,8 +108,8 @@ impl Generator {
         self.inc_pc();
 
         // L2を再設定
-        if let Some(Instruction::Split(_, L2_addr)) = self.insts.get_mut(split_addr) {
-            *L2_addr = self.pc;
+        if let Some(Instruction::Split(_, l2)) = self.insts.get_mut(split_addr) {
+            *l2 = self.pc;
         } else {
             return Err(CodeGenError::FailOr);
         }
@@ -118,12 +118,11 @@ impl Generator {
         self.gen_expr(e2);
 
         // L3を再設定
-        if let Some(Instruction::Split(_, L3_addr)) = self.insts.get_mut(jump_addr) {
-            *L3_addr = self.pc;
+        if let Some(Instruction::Split(_, l3)) = self.insts.get_mut(jump_addr) {
+            *l3 = self.pc;
         } else {
             return Err(CodeGenError::FailOr);
         }
-
         Ok(())
     }
 
@@ -137,22 +136,20 @@ impl Generator {
     /// L2:
     /// ```
     fn gen_question(&mut self, e: &AST) -> Result<(), CodeGenError> {
-        // // split L1, L2
-        // let split_addr = self.pc;
-        // self.inc_pc()?;
-        // let split = Instruction::Split(self.pc, 0); // self.pcがL1。L2を仮に0と設定
-        // self.insts.push(split);
+        // split L1, L2
+        let split_addr = self.pc;
+        self.inc_pc()?;
+        self.insts.push(Instruction::Split(self.pc, 0));
 
-        // // L1: eのコード
-        // self.gen_expr(e)?;
+        // L2
+        self.gen_expr(e)?;
 
-        // // L2の値を設定
-        // if let Some(Instruction::Split(_, l2)) = self.insts.get_mut(split_addr) {
-        //     *l2 = self.pc;
-        //     Ok(())
-        // } else {
-        //     Err(CodeGenError::FailQuestion)
-        // }
+        // L2を再設定
+        if let Some(Instruction::Split(_, l2)) = self.insts.get_mut(split_addr) {
+            *l2 = self.pc;
+        } else {
+            return Err(CodeGenError::FailQuestion);
+        }
         Ok(())
     }
 
@@ -164,14 +161,13 @@ impl Generator {
     /// L2:
     /// ```
     fn gen_plus(&mut self, e: &AST) -> Result<(), CodeGenError> {
-        // // L1: eのコード
-        // let l1 = self.pc;
-        // self.gen_expr(e)?;
+        // L1: eのコード
+        let l1_addr = self.pc;
+        self.gen_expr(e)?;
 
-        // // split L1, L2
-        // self.inc_pc()?;
-        // let split = Instruction::Split(l1, self.pc); // self.pcがL2
-        // self.insts.push(split);
+        // split L1, L2
+        self.inc_pc()?;
+        self.insts.push(Instruction::Split(l1_addr, self.pc));
 
         Ok(())
     }
@@ -187,36 +183,27 @@ impl Generator {
     /// L3:
     /// ```
     fn gen_star(&mut self, e: &AST) -> Result<(), CodeGenError> {
-        // // L1: split L2, L3
-        // let l1 = self.pc;
-        // self.inc_pc()?;
-        // let split = Instruction::Split(self.pc, 0); // self.pcがL2。L3を仮に0と設定
-        // self.insts.push(split);
+        // L1: split L2, L3
+        let l1 = self.pc;
+        self.inc_pc()?;
+        self.insts.push(Instruction::Split(self.pc, 0));
 
-        // // L2: eのコード
-        // self.gen_expr(e)?;
-
-        // // jump L1
-        // self.inc_pc()?;
-        // self.insts.push(Instruction::Jump(l1));
-
-        // // L3の値を設定
-        // if let Some(Instruction::Split(_, l3)) = self.insts.get_mut(l1) {
-        //     *l3 = self.pc;
-        //     Ok(())
-        // } else {
-        //     Err(CodeGenError::FailStar)
-        // }
-
+        // jump L1
+        self.inc_pc()?;
+        self.insts.push(Instruction::Jump(l1));
+        if let Some(Instruction::Split(_, l3)) = self.insts.get_mut(l1) {
+            *l3 = self.pc;
+        } else {
+            return Err(CodeGenError::FailStar);
+        }
         Ok(())
     }
 
     /// 連続する正規表現のコード生成
     fn gen_seq(&mut self, exprs: &[AST]) -> Result<(), CodeGenError> {
-        // for e in exprs {
-        //     self.gen_expr(e)?;
-        // }
-
+        for e in exprs {
+            self.gen_expr(e)?;
+        }
         Ok(())
     }
 
