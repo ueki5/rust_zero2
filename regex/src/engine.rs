@@ -55,5 +55,6 @@ pub fn print(expr: &str) -> Result<(), DynError> {
 }
 
 pub fn do_matching(expr: &str, input: &str, is_depth: bool) -> Result<bool, DynError> {
+    let ast = parser::parse(expr)?;
     Ok(true)
 }
