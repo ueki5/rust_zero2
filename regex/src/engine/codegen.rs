@@ -77,10 +77,9 @@ impl Generator {
 
     /// char命令生成関数
     fn gen_char(&mut self, c: char) -> Result<(), CodeGenError> {
-        // let inst = Instruction::Char(c);
-        // self.insts.push(inst);
-        // self.inc_pc()?;
-        Ok(())
+        let inst = Instruction::Char(c);
+        self.insts.push(inst);
+        self.inc_pc()
     }
 
     /// OR演算子のコード生成器。
@@ -95,36 +94,35 @@ impl Generator {
     /// L3:
     /// ```
     fn gen_or(&mut self, e1: &AST, e2: &AST) -> Result<(), CodeGenError> {
-        // // split L1, L2
-        // let split_addr = self.pc;
-        // self.inc_pc()?;
-        // let split = Instruction::Split(self.pc, 0); // L1 = self.pc。L2は仮に0と設定
-        // self.insts.push(split);
+        // split L1, L2
+        let split_addr = self.pc;
+        self.insts.push(Instruction::Split(self.pc, 0)); //L2を0で仮置き
+        self.inc_pc();
 
-        // // L1: e1のコード
-        // self.gen_expr(e1)?;
+        // L1: e1のコード
+        self.gen_expr(e1);
 
-        // // jmp L3
-        // let jmp_addr = self.pc;
-        // self.insts.push(Instruction::Jump(0)); // L3を仮に0と設定
+        // jmp L3
+        let jump_addr = self.pc;
+        self.insts.push(Instruction::Jump(0)); //L3を0で仮置き
+        self.inc_pc();
 
-        // // L2の値を設定
-        // self.inc_pc()?;
-        // if let Some(Instruction::Split(_, l2)) = self.insts.get_mut(split_addr) {
-        //     *l2 = self.pc;
-        // } else {
-        //     return Err(CodeGenError::FailOr);
-        // }
+        // L2を再設定
+        if let Some(Instruction::Split(_, L2_addr)) = self.insts.get_mut(split_addr) {
+            *L2_addr = self.pc;
+        } else {
+            return Err(CodeGenError::FailOr);
+        }
 
-        // // L2: e2のコード
-        // self.gen_expr(e2)?;
+        // L2: e2のコード
+        self.gen_expr(e2);
 
-        // // L3の値を設定
-        // if let Some(Instruction::Jump(l3)) = self.insts.get_mut(jmp_addr) {
-        //     *l3 = self.pc;
-        // } else {
-        //     return Err(CodeGenError::FailOr);
-        // }
+        // L3を再設定
+        if let Some(Instruction::Split(_, L3_addr)) = self.insts.get_mut(jump_addr) {
+            *L3_addr = self.pc;
+        } else {
+            return Err(CodeGenError::FailOr);
+        }
 
         Ok(())
     }
