@@ -54,7 +54,9 @@ pub fn print(expr: &str) -> Result<(), DynError> {
     Ok(())
 }
 
-pub fn do_matching(expr: &str, input: &str, is_depth: bool) -> Result<bool, DynError> {
+pub fn do_matching(expr: &str, line: &str, is_depth: bool) -> Result<bool, DynError> {
     let ast = parser::parse(expr)?;
-    Ok(true)
+    let code = codegen::get_code(&ast)?;
+    let line = line.chars().collect::<Vec<char>>();
+    Ok(evaluator::eval(&code, &line, is_depth)?)
 }
