@@ -37,24 +37,34 @@ fn _eval(insts: &[Instruction], line: &[char], pc: usize, sp: usize) -> Result<b
     if pc >= insts.len(){
         return Err(EvalError::PCOverFlow);
     }
-    if sp >= line.len(){
-        return Err(EvalError::SPOverFlow);
-    }
     match insts[pc] {
-        Instruction::Char(c) if c == line[sp] => _eval(insts, line, pc + 1, sp + 1),
+        Instruction::Char(c) if c == line[sp] => {
+            if sp >= line.len(){
+                return Err(EvalError::SPOverFlow);
+            }
+            _eval(insts, line, pc + 1, sp + 1);
+        }
         Instruction::Char(_) => return Err(EvalError::InvalidContext),
         Instruction::Match => {
             return Ok(true);
         }
-        Instruction::Jump(pc1) => _eval(insts, line, pc1, sp),
+        Instruction::Jump(pc1) => {
+            _eval(insts, line, pc1, sp);
+        }
         Instruction::Split(pc1, pc2) => {
             if let r1 = _eval(insts, line, pc1, sp)? {
-                let r2 = _eval(insts, line, pc2, sp)?;
-                // return Ok(r2);
+                if let r2 = _eval(insts, line, pc2, sp)?{
+                    return Ok(true);
+                } else {
+                    return Ok(true);
+                }
             } else {
-                let r2 = _eval(insts, line, pc2, sp)?;
+                if let r2 = _eval(insts, line, pc2, sp)?{
+                    return Ok(true);
+                } else {
+                    return Err(EvalError::InvalidContext);
+                }
             }
-            Ok(true)
         }
     };
     Ok(true)

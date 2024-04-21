@@ -21,7 +21,7 @@
             },
             "args": [
                 "-r",
-                "abc",
+                "abcx?",
                 "-i",
                 "input/regex.txt"
             ],
