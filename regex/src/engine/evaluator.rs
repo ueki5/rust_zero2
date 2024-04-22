@@ -38,14 +38,12 @@ fn _eval(insts: &[Instruction], line: &[char], pc: usize, sp: usize) -> Result<b
         return Err(EvalError::PCOverFlow);
     }
     match insts[pc] {
-        Instruction::Char(c) if c == line[sp] => {
-            if sp >= line.len(){
-                return Err(EvalError::SPOverFlow);
-            }
-            _eval(insts, line, pc + 1, sp + 1);
+        Instruction::Char(c) if sp < line.len() && c == line[sp] => {
+            return _eval(insts, line, pc + 1, sp + 1);
         }
         Instruction::Char(_) => return Err(EvalError::InvalidContext),
         Instruction::Match => {
+            println!("{:?}", &line[0..sp-1]);
             return Ok(true);
         }
         Instruction::Jump(pc1) => {
