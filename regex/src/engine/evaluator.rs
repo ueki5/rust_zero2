@@ -43,7 +43,7 @@ fn _eval(insts: &[Instruction], line: &[char], pc: usize, sp: usize) -> Result<b
         }
         Instruction::Char(_) => return Err(EvalError::InvalidContext),
         Instruction::Match => {
-            println!("{:?}", &line[0..sp]);
+            println!("match:{:?}", &line[0..sp]);
             return Ok(true);
         }
         Instruction::Jump(pc1) => {

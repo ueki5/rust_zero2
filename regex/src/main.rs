@@ -46,11 +46,11 @@ fn match_file(expr: &str, input: &str) -> Result<(), DynError> {
     engine::print(expr)?;
 
     // ファイルを読み込み
-    for line in reader.lines() {
+    for (idx, line) in reader.lines().enumerate() {
         let line = line?;
         for (i, _) in line.char_indices() {
             if engine::do_matching(expr, &line[i..], true)? {
-                println!("{line}");
+                println!("line={idx}:{line}");
                 break;
             }
         }

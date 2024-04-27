@@ -21,7 +21,7 @@
             },
             "args": [
                 "-r",
-                "(aaa|ab)(cd)+",
+                "(abcd|cc)+",
                 "-i",
                 "input/regex.txt"
             ],
