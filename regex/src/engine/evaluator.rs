@@ -61,5 +61,4 @@ fn _eval(insts: &[Instruction], line: &[char], pc: usize, sp: usize) -> Result<b
             }
         }
     };
-    Ok(true)
 }
