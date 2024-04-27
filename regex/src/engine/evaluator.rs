@@ -43,22 +43,18 @@ fn _eval(insts: &[Instruction], line: &[char], pc: usize, sp: usize) -> Result<b
         }
         Instruction::Char(_) => return Err(EvalError::InvalidContext),
         Instruction::Match => {
-            println!("{:?}", &line[0..sp - 1]);
+            println!("{:?}", &line[0..sp]);
             return Ok(true);
         }
         Instruction::Jump(pc1) => {
             return _eval(insts, line, pc1, sp);
         }
         Instruction::Split(pc1, pc2) => {
-            if let Ok(r2) = _eval(insts, line, pc2, sp) {
-                if let Ok(r1) = _eval(insts, line, pc1, sp) {
-                    return Ok(r1);
-                } else {
-                    return Ok(r2);
-                }
+            if let Ok(r1) = _eval(insts, line, pc1, sp) {
+                    return Ok(true);
             } else {
-                if let Ok(r1) = _eval(insts, line, pc1, sp) {
-                    return Ok(r1);
+                if let Ok(r2) = _eval(insts, line, pc2, sp){
+                    return Ok(true);
                 } else {
                     return Err(EvalError::InvalidContext);
                 }
