@@ -31,34 +31,38 @@ impl Error for EvalError {}
 /// 実行時エラーが起きた場合はErrを返す。
 /// マッチ成功時はOk(true)を、失敗時はOk(false)を返す。
 pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool, EvalError> {
-    _eval(insts, line, 0, 0)
-}
-fn _eval(insts: &[Instruction], line: &[char], pc: usize, sp: usize) -> Result<bool, EvalError> {
-    if pc >= insts.len() {
-        return Err(EvalError::PCOverFlow);
-    }
-    match insts[pc] {
-        Instruction::Char(c) if sp < line.len() && c == line[sp] => {
-            return _eval(insts, line, pc + 1, sp + 1);
+    let mut v: VecDeque<(usize, usize)> = VecDeque::new();
+    fn _eval(insts: &[Instruction], line: &[char], pc: usize, sp: usize, is_depth: bool, v: &VecDeque<(usize, usize)>) -> Result<bool, EvalError> {
+        if pc >= insts.len() {
+            return Err(EvalError::PCOverFlow);
         }
-        Instruction::Char(_) => return Err(EvalError::InvalidContext),
-        Instruction::Match => {
-            println!("match:{:?}", &line[0..sp]);
-            return Ok(true);
-        }
-        Instruction::Jump(pc1) => {
-            return _eval(insts, line, pc1, sp);
-        }
-        Instruction::Split(pc1, pc2) => {
-            if let Ok(r1) = _eval(insts, line, pc1, sp) {
-                    return Ok(true);
-            } else {
-                if let Ok(r2) = _eval(insts, line, pc2, sp){
-                    return Ok(true);
+        match insts[pc] {
+            Instruction::Char(c) => {
+                if sp < line.len() && c == line[sp] {
+                    return _eval(insts, line, pc + 1, sp + 1, is_depth, v);
                 } else {
                     return Err(EvalError::InvalidContext);
                 }
             }
-        }
-    };
+            Instruction::Match => {
+                println!("match:{:?}", &line[0..sp]);
+                return Ok(true);
+            }
+            Instruction::Jump(pc1) => {
+                return _eval(insts, line, pc1, sp, is_depth, v);
+            }
+            Instruction::Split(pc1, pc2) => {
+                if let Ok(r1) = _eval(insts, line, pc1, sp, is_depth, v) {
+                        return Ok(r1);
+                } else {
+                    if let Ok(r2) = _eval(insts, line, pc2, sp, is_depth, v){
+                        return Ok(r2);
+                    } else {
+                        return Err(EvalError::InvalidContext);
+                    }
+                }
+            }
+        };
+    }
+    _eval(insts, line, 0, 0, is_depth, &v)
 }
