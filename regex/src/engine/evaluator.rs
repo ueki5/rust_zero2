@@ -78,14 +78,21 @@ pub fn eval(
             }
         };
     }
+    let mut is_fixed = false;
     // 分岐のないパターンを評価
     let r = _eval(insts, line, 0, 0, is_depth, &mut v)?;
     // 分岐パターンを評価
     if !r {
         while let Some((pc, sp)) = v.pop_back() {
-            _eval(insts, line, pc, sp, is_depth, &mut v);
+            if let Ok(r) = _eval(insts, line, pc, sp, is_depth, &mut v){
+                is_fixed = true;
+            } else if is_fixed {
+                return Ok(true);
+            } else {
+                return Err(EvalError::InvalidContext);
+            }
         }
-        return Ok(r);
+        return Ok(true);
     } else {
         return Ok(r);
     }
