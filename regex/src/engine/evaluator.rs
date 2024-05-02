@@ -30,9 +30,20 @@ impl Error for EvalError {}
 ///
 /// 実行時エラーが起きた場合はErrを返す。
 /// マッチ成功時はOk(true)を、失敗時はOk(false)を返す。
-pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool, EvalError> {
+pub fn eval(
+        insts: &[Instruction] 
+        , line: &[char]
+        , is_depth: bool)
+        -> Result<bool, EvalError> {
     let mut v: VecDeque<(usize, usize)> = VecDeque::new();
-    fn _eval(insts: &[Instruction], line: &[char], pc: usize, sp: usize, is_depth: bool, v: &VecDeque<(usize, usize)>) -> Result<bool, EvalError> {
+    fn _eval(
+            insts: &[Instruction] 
+            , line: &[char]
+            , pc: usize
+            , sp: usize 
+            , is_depth: bool 
+            , v: &mut VecDeque<(usize, usize)>) 
+            -> Result<bool, EvalError> {
         if pc >= insts.len() {
             return Err(EvalError::PCOverFlow);
         }
@@ -52,17 +63,30 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
                 return _eval(insts, line, pc1, sp, is_depth, v);
             }
             Instruction::Split(pc1, pc2) => {
-                if let Ok(r1) = _eval(insts, line, pc1, sp, is_depth, v) {
-                        return Ok(r1);
-                } else {
-                    if let Ok(r2) = _eval(insts, line, pc2, sp, is_depth, v){
-                        return Ok(r2);
-                    } else {
-                        return Err(EvalError::InvalidContext);
-                    }
-                }
+                v.push_back((pc2, sp));
+                v.push_back((pc1, sp));
+                return Ok(false);
+                // if let Ok(r1) = _eval(insts, line, pc1, sp, is_depth, v) {
+                //         return Ok(r1);
+                // } else {
+                //     if let Ok(r2) = _eval(insts, line, pc2, sp, is_depth, v){
+                //         return Ok(r2);
+                //     } else {
+                //         return Err(EvalError::InvalidContext);
+                //     }
+                // }
             }
         };
     }
-    _eval(insts, line, 0, 0, is_depth, &v)
+    // 分岐のないパターンを評価
+    let r = _eval(insts, line, 0, 0, is_depth, &mut v)?;
+    // 分岐パターンを評価
+    if !r {
+        while let Some((pc, sp)) = v.pop_back() {
+            _eval(insts, line, pc, sp, is_depth, &mut v);
+        }
+        return Ok(r);
+    } else {
+        return Ok(r);
+    }
 }
