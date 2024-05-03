@@ -30,70 +30,60 @@ impl Error for EvalError {}
 ///
 /// 実行時エラーが起きた場合はErrを返す。
 /// マッチ成功時はOk(true)を、失敗時はOk(false)を返す。
-pub fn eval(
-        insts: &[Instruction] 
-        , line: &[char]
-        , is_depth: bool)
-        -> Result<bool, EvalError> {
+pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool, EvalError> {
     let mut v: VecDeque<(usize, usize)> = VecDeque::new();
+    let mut ans: Vec<String> = Vec::new();
     fn _eval(
-            insts: &[Instruction] 
-            , line: &[char]
-            , pc: usize
-            , sp: usize 
-            , is_depth: bool 
-            , v: &mut VecDeque<(usize, usize)>) 
-            -> Result<bool, EvalError> {
+        insts: &[Instruction],
+        line: &[char],
+        pc: usize,
+        sp: usize,
+        is_depth: bool,
+        v: &mut VecDeque<(usize, usize)>,
+        ans: &mut Vec<String>,
+    ) -> Result<bool, EvalError> {
         if pc >= insts.len() {
             return Err(EvalError::PCOverFlow);
         }
         match insts[pc] {
             Instruction::Char(c) => {
                 if sp < line.len() && c == line[sp] {
-                    return _eval(insts, line, pc + 1, sp + 1, is_depth, v);
+                    return _eval(insts, line, pc + 1, sp + 1, is_depth, v, ans);
                 } else {
                     return Err(EvalError::InvalidContext);
                 }
             }
             Instruction::Match => {
-                println!("match:{:?}", &line[0..sp]);
+                println!("match  :{:?}", &line[0..sp]);
+                let answer = format!("{:?}", &line[0..sp]);
+                ans.push(answer);
                 return Ok(true);
             }
             Instruction::Jump(pc1) => {
-                return _eval(insts, line, pc1, sp, is_depth, v);
+                return _eval(insts, line, pc1, sp, is_depth, v, ans);
             }
             Instruction::Split(pc1, pc2) => {
                 v.push_back((pc2, sp));
                 v.push_back((pc1, sp));
                 return Ok(false);
-                // if let Ok(r1) = _eval(insts, line, pc1, sp, is_depth, v) {
-                //         return Ok(r1);
-                // } else {
-                //     if let Ok(r2) = _eval(insts, line, pc2, sp, is_depth, v){
-                //         return Ok(r2);
-                //     } else {
-                //         return Err(EvalError::InvalidContext);
-                //     }
-                // }
             }
         };
     }
-    let mut is_fixed = false;
     // 分岐のないパターンを評価
-    let r = _eval(insts, line, 0, 0, is_depth, &mut v)?;
+    let r = _eval(insts, line, 0, 0, is_depth, &mut v, &mut ans)?;
     // 分岐パターンを評価
     if !r {
         while let Some((pc, sp)) = v.pop_back() {
-            if let Ok(r) = _eval(insts, line, pc, sp, is_depth, &mut v){
-                is_fixed = true;
-            } else if is_fixed {
-                return Ok(true);
-            } else {
-                return Err(EvalError::InvalidContext);
-            }
+            if let Ok(r) = _eval(insts, line, pc, sp, is_depth, &mut v, &mut ans) {}
         }
-        return Ok(true);
-    } else {
-        return Ok(r);
     }
+    // 最長の解を表示
+    let mut longest: String = String::from("");
+    for str in ans {
+        if str.chars().count() > longest.chars().count() {
+            longest = str;
+        }
+    }
+    println!("longest:{}", longest);
+    Ok(true)
 }
