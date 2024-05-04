@@ -49,7 +49,7 @@ fn match_file(expr: &str, input: &str) -> Result<(), DynError> {
     for (idx, line) in reader.lines().enumerate() {
         let line = line?;
         for (i, _) in line.char_indices() {
-            if engine::do_matching(expr, &line[i..], true)? {
+            if engine::do_matching(expr, &line[i..], false)? {
                 println!("line={idx}:{line}");
                 break;
             }

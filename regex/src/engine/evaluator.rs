@@ -55,7 +55,8 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
             }
             Instruction::Match => {
                 println!("match  :{:?}", &line[0..sp]);
-                let answer = format!("{:?}", &line[0..sp]);
+                let answer = format!("{}", 
+                    &line[0..sp].iter().fold(String::new(), |accm, x| accm + &x.to_string()));
                 ans.push(answer);
                 return Ok(true);
             }
@@ -73,8 +74,18 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
     let r = _eval(insts, line, 0, 0, is_depth, &mut v, &mut ans)?;
     // 分岐パターンを評価
     if !r {
-        while let Some((pc, sp)) = v.pop_back() {
-            if let Ok(r) = _eval(insts, line, pc, sp, is_depth, &mut v, &mut ans) {}
+        loop {
+            let result = if is_depth {
+                v.pop_back()
+            } else {
+                v.pop_front()
+            };
+            match result {
+                Some((pc, sp)) => {
+                    if let Ok(r) = _eval(insts, line, pc, sp, is_depth, &mut v, &mut ans) {}
+                }
+                _ => break,
+            }
         }
     }
     // 最長の解を表示
