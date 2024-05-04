@@ -55,8 +55,12 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
             }
             Instruction::Match => {
                 println!("match  :{:?}", &line[0..sp]);
-                let answer = format!("{}", 
-                    &line[0..sp].iter().fold(String::new(), |accm, x| accm + &x.to_string()));
+                let answer = format!(
+                    "{}",
+                    &line[0..sp]
+                        .iter()
+                        .fold(String::new(), |accm, x| accm + &x.to_string())
+                );
                 ans.push(answer);
                 return Ok(true);
             }
