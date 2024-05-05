@@ -23,7 +23,9 @@
                 "-r",
                 "(abcd|cc)+(cde)?",
                 "-i",
-                "input/regex.txt"
+                "input/regex.txt",
+                "-m",
+                "dfs",
             ],
             "cwd": "${workspaceFolder}"
         },

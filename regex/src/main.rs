@@ -1,13 +1,13 @@
 mod engine;
 mod helper;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use engine::{do_matching, print};
 use helper::DynError;
 use std::{
-    env,
     fs::File,
     io::{BufRead, BufReader},
+    fmt::{Debug, Display, Formatter},
 };
 
 /// 正規表現を評価する
@@ -19,11 +19,30 @@ struct Args {
     /// 入力ファイル
     #[arg(short, long)]
     input: String,
+    /// 深さ優先探索
+    #[arg(short, long, value_enum, default_value_t = SearchMethod::Dfs, help = "Search Method")]
+    method: SearchMethod,
+}
+#[derive(Debug, Clone, ValueEnum, PartialEq)]
+enum SearchMethod {
+    Dfs,
+    Bfs,
 }
 
+impl Display for SearchMethod {
+    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
+        let raw = format!("{:?}", self);
+        write!(f, "{}", raw)
+    }
+}
 fn main() -> Result<(), DynError> {
     let args = Args::parse();
-    match_file(&args.regex, &args.input)?;
+    let is_depth = if args.method == SearchMethod::Dfs {
+        true
+    } else {
+        false
+    };
+    match_file(&args.regex, &args.input, is_depth)?;
     Ok(())
 }
 
@@ -39,17 +58,16 @@ fn main() -> Result<(), DynError> {
 /// - bcd
 /// - cd
 /// - d
-fn match_file(expr: &str, input: &str) -> Result<(), DynError> {
+fn match_file(expr: &str, input: &str, breadth: bool) -> Result<(), DynError> {
     let f = File::open(input)?;
     let reader = BufReader::new(f);
 
     engine::print(expr)?;
-
     // ファイルを読み込み
     for (idx, line) in reader.lines().enumerate() {
         let line = line?;
         for (i, _) in line.char_indices() {
-            if engine::do_matching(expr, &line[i..], false)? {
+            if engine::do_matching(expr, &line[i..], breadth)? {
                 println!("line={idx}:{line}");
                 break;
             }

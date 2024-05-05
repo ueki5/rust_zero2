@@ -1,7 +1,7 @@
 //! 正規表現の式をパースし、抽象構文木に変換
 use std::{
     error::Error,
-    fmt::{self, Debug, Display, Formatter},
+    fmt::{self, Debug, Display},
     mem::take,
 };
 
@@ -137,8 +137,14 @@ pub fn parse(expr: &str) -> Result<AST, ParseError> {
                 };
             }
             ParseState::Escape => {
-                seq.push(parse_escape(i, c).unwrap());
-                state = ParseState::Char;
+                let ret = parse_escape(i, c);
+                match ret {
+                    Ok(ast) => {
+                        seq.push(ast);
+                        state = ParseState::Char;
+                    }
+                    _ => return ret
+                }
             }
         }
     }
@@ -275,4 +281,25 @@ fn test() {
     assert_eq!(parse("(a)b").unwrap(), AST::Seq(vec![AST::Seq(vec![AST::Char('a')]), AST::Char('b')]));
     assert_eq!(parse("a(b)").unwrap(), AST::Seq(vec![AST::Char('a'), AST::Seq(vec![AST::Char('b')])]));
     assert_eq!(parse("(ab)").unwrap(), AST::Seq(vec![AST::Seq(vec![AST::Char('a'), AST::Char('b')])]));
+
+    // escape
+    assert_eq!(parse("\\+").unwrap(), AST::Seq(vec![AST::Char('+')]));
+    assert_eq!(parse("\\*").unwrap(), AST::Seq(vec![AST::Char('*')]));
+    assert_eq!(parse("\\?").unwrap(), AST::Seq(vec![AST::Char('?')]));
+    assert_eq!(parse("\\|").unwrap(), AST::Seq(vec![AST::Char('|')]));
+    assert_eq!(parse("\\(").unwrap(), AST::Seq(vec![AST::Char('(')]));
+    assert_eq!(parse("\\)").unwrap(), AST::Seq(vec![AST::Char(')')]));
+    assert_eq!(parse("\\\\").unwrap(), AST::Seq(vec![AST::Char('\\')]));
+
+    // abnormal case
+    assert!(parse("+").is_err());
+    assert!(parse("*").is_err());
+    assert!(parse("?").is_err());
+    assert!(parse("|").is_err());
+    assert!(parse("(").is_err());
+    assert!(parse(")").is_err());
+    assert!(parse("()").is_err());
+    assert!(parse("").is_err());
+    assert!(parse("\\").is_err());
+    assert!(parse("\\a").is_err());
 }
