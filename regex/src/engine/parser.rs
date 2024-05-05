@@ -208,13 +208,71 @@ fn foldr(mut seq_or: Vec<AST>) -> Option<AST> {
 }
 #[test]
 fn test() {
+    // Char
     assert_eq!(parse("a").unwrap(), AST::Seq(vec![AST::Char('a')]));
+    // Plus
+    assert_eq!(
+        parse("a+").unwrap(),
+        AST::Seq(vec![AST::Plus(Box::new(AST::Char('a')))])
+    );
+    assert_eq!(
+        parse("aa+").unwrap(),
+        AST::Seq(vec![AST::Char('a'), AST::Plus(Box::new(AST::Char('a')))])
+    );
+    assert_eq!(
+        parse("a+a").unwrap(),
+        AST::Seq(vec![AST::Plus(Box::new(AST::Char('a'))), AST::Char('a')])
+    );
+    // Star
+    assert_eq!(
+        parse("a*").unwrap(),
+        AST::Seq(vec![AST::Star(Box::new(AST::Char('a')))])
+    );
+    assert_eq!(
+        parse("aa*").unwrap(),
+        AST::Seq(vec![AST::Char('a'), AST::Star(Box::new(AST::Char('a')))])
+    );
+    assert_eq!(
+        parse("a*a").unwrap(),
+        AST::Seq(vec![AST::Star(Box::new(AST::Char('a'))), AST::Char('a')])
+    );
+    // Question
+    assert_eq!(
+        parse("a?").unwrap(),
+        AST::Seq(vec![AST::Question(Box::new(AST::Char('a')))])
+    );
+    assert_eq!(
+        parse("aa?").unwrap(),
+        AST::Seq(vec![AST::Char('a'), AST::Question(Box::new(AST::Char('a')))])
+    );
+    assert_eq!(
+        parse("a?a").unwrap(),
+        AST::Seq(vec![AST::Question(Box::new(AST::Char('a'))), AST::Char('a')])
+    );
+    // Or
+    assert_eq!(
+        parse("a|b").unwrap(),
+        AST::Or(Box::new(AST::Seq(vec![AST::Char('a')])), 
+                Box::new(AST::Seq(vec![AST::Char('b')])))
+    );
+    assert_eq!(
+        parse("aa|b").unwrap(),
+        AST::Or(Box::new(AST::Seq(vec![AST::Char('a'), AST::Char('a')])), 
+                Box::new(AST::Seq(vec![AST::Char('b')])))
+    );
+    assert_eq!(
+        parse("a|bb").unwrap(),
+        AST::Or(Box::new(AST::Seq(vec![AST::Char('a')])), 
+                Box::new(AST::Seq(vec![AST::Char('b'), AST::Char('b')])))
+    );
+    // Seq
     assert_eq!(
         parse("ab").unwrap(),
         AST::Seq(vec![AST::Char('a'), AST::Char('b')])
     );
-    assert_eq!(
-        parse("a+").unwrap(),
-        AST::Seq(vec![AST::Char('a'), AST::Char('b')])
-    );
+    // parentheses
+    assert_eq!(parse("(a)").unwrap(), AST::Seq(vec![AST::Seq(vec![AST::Char('a')])]));
+    assert_eq!(parse("(a)b").unwrap(), AST::Seq(vec![AST::Seq(vec![AST::Char('a')]), AST::Char('b')]));
+    assert_eq!(parse("a(b)").unwrap(), AST::Seq(vec![AST::Char('a'), AST::Seq(vec![AST::Char('b')])]));
+    assert_eq!(parse("(ab)").unwrap(), AST::Seq(vec![AST::Seq(vec![AST::Char('a'), AST::Char('b')])]));
 }
