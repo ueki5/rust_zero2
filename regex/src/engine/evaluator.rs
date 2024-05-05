@@ -59,7 +59,7 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
                     "{}",
                     &line[0..sp]
                         .iter()
-                        .fold(String::new(), |accm, x| accm + &x.to_string())
+                        .fold(String::new(), |accm, x| accm + x.to_string().as_str())
                 );
                 ans.push(answer);
                 return Ok(true);
