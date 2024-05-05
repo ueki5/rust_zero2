@@ -52,7 +52,7 @@ impl Display for ParseError {
 impl Error for ParseError {} // エラー用に、Errorトレイトを実装
 
 /// 抽象構文木を表現するための型
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum AST {
     Char(char),
     Plus(Box<AST>),
@@ -205,4 +205,16 @@ fn foldr(mut seq_or: Vec<AST>) -> Option<AST> {
         // seq_orの要素が一つのみの場合は、Orではなく、最初の値を返す
         seq_or.pop()
     }
+}
+#[test]
+fn test() {
+    assert_eq!(parse("a").unwrap(), AST::Seq(vec![AST::Char('a')]));
+    assert_eq!(
+        parse("ab").unwrap(),
+        AST::Seq(vec![AST::Char('a'), AST::Char('b')])
+    );
+    assert_eq!(
+        parse("a+").unwrap(),
+        AST::Seq(vec![AST::Char('a'), AST::Char('b')])
+    );
 }

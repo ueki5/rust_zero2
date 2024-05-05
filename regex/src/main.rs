@@ -57,8 +57,7 @@ fn match_file(expr: &str, input: &str) -> Result<(), DynError> {
     }
     Ok(())
 }
-# [test]
-fn test_matching() {
-    assert!(do_matching("abc|def", "abc", true).unwrap());
-    assert_eq!(parse("a"), parser::);
+#[test]
+fn test() {
+    assert!(engine::do_matching("abc|def", "abc", true).unwrap());
 }
