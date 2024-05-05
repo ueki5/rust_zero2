@@ -30,7 +30,7 @@ impl Error for EvalError {}
 ///
 /// 実行時エラーが起きた場合はErrを返す。
 /// マッチ成功時はOk(true)を、失敗時はOk(false)を返す。
-pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool, EvalError> {
+pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<String, EvalError> {
     let mut v: VecDeque<(usize, usize)> = VecDeque::new();
     let mut ans: Vec<String> = Vec::new();
     fn _eval(
@@ -41,13 +41,15 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
         is_depth: bool,
         v: &mut VecDeque<(usize, usize)>,
         ans: &mut Vec<String>,
-    ) -> Result<bool, EvalError> {
+    ) -> Result<String, EvalError> {
         if pc >= insts.len() {
             return Err(EvalError::PCOverFlow);
         }
         match insts[pc] {
             Instruction::Char(c) => {
-                if sp < line.len() && c == line[sp] {
+                if sp >= line.len(){
+                    return Err(EvalError::SPOverFlow);
+                } else if c == line[sp] {
                     return _eval(insts, line, pc + 1, sp + 1, is_depth, v, ans);
                 } else {
                     return Err(EvalError::InvalidContext);
@@ -61,8 +63,8 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
                         .iter()
                         .fold(String::new(), |accm, x| accm + x.to_string().as_str())
                 );
-                ans.push(answer);
-                return Ok(true);
+                ans.push(answer.clone());
+                return Ok(answer);
             }
             Instruction::Jump(pc1) => {
                 return _eval(insts, line, pc1, sp, is_depth, v, ans);
@@ -70,14 +72,14 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
             Instruction::Split(pc1, pc2) => {
                 v.push_back((pc2, sp));
                 v.push_back((pc1, sp));
-                return Ok(false);
+                return Ok(String::new());
             }
         };
     }
     // 分岐のないパターンを評価
     let r = _eval(insts, line, 0, 0, is_depth, &mut v, &mut ans)?;
     // 分岐パターンを評価
-    if !r {
+    if r.len() == 0 {
         loop {
             let result = if is_depth {
                 v.pop_back()
@@ -100,5 +102,5 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<bool
         }
     }
     println!("longest:{}", longest);
-    Ok(true)
+    Ok(longest)
 }

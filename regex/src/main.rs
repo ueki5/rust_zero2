@@ -67,7 +67,7 @@ fn match_file(expr: &str, input: &str, breadth: bool) -> Result<(), DynError> {
     for (idx, line) in reader.lines().enumerate() {
         let line = line?;
         for (i, _) in line.char_indices() {
-            if engine::do_matching(expr, &line[i..], breadth)? {
+            if engine::do_matching(expr, &line[i..], breadth)?.len() > 0 {
                 println!("line={idx}:{line}");
                 break;
             }
@@ -77,5 +77,5 @@ fn match_file(expr: &str, input: &str, breadth: bool) -> Result<(), DynError> {
 }
 #[test]
 fn test() {
-    assert!(engine::do_matching("abc|def", "abc", true).unwrap());
+    assert_eq!(engine::do_matching("abc|def", "abc", true).unwrap(), String::from("abc"));
 }
