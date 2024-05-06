@@ -77,5 +77,17 @@ fn match_file(expr: &str, input: &str, breadth: bool) -> Result<(), DynError> {
 }
 #[test]
 fn test() {
-    assert_eq!(engine::do_matching("abc|def", "abc", true).unwrap(), String::from("abc"));
+    // char
+    assert_eq!(engine::do_matching("a", "a", true).unwrap(), String::from("a"));
+    // plus
+    assert_eq!(engine::do_matching("a+", "a", true).unwrap(), String::from("a"));
+    assert_eq!(engine::do_matching("a+", "aa", true).unwrap(), String::from("aa"));
+    // star
+    assert_eq!(engine::do_matching("a*", "", true).unwrap(), String::from(""));
+    assert_eq!(engine::do_matching("a*", "a", true).unwrap(), String::from("a"));
+    assert_eq!(engine::do_matching("a*", "aa", true).unwrap(), String::from("aa"));
+    // or
+    assert_eq!(engine::do_matching("a|b", "a", true).unwrap(), String::from("a"));
+    assert_eq!(engine::do_matching("a|b", "b", true).unwrap(), String::from("b"));
+    assert_eq!(engine::do_matching("a|b|c", "c", true).unwrap(), String::from("c"));
 }

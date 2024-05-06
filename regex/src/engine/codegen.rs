@@ -196,6 +196,9 @@ impl Generator {
         self.inc_pc()?;
         self.insts.push(Instruction::Split(self.pc, 0));
 
+        // L2: eのコード
+        self.gen_expr(e)?;
+
         // jump L1
         self.inc_pc()?;
         self.insts.push(Instruction::Jump(l1));
