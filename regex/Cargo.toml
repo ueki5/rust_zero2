@@ -1,15 +1,15 @@
-[dependencies]
-clap = { version = "4.5.4", features = ["derive"] }
-
-[dev-dependencies]
-criterion = "0.5.1"
-
 [package]
 name = "regex"
 version = "0.1.0"
 edition = "2021"
 authors = ["ueki5 <ueki005@gmail.com>"]
 license = "MIT"
+
+[dependencies]
+clap = { version = "4.5.4", features = ["derive"] }
+
+[dev-dependencies]
+criterion = "0.5.1"
 
 [[bench]]
 name = "benchmark"
