@@ -56,7 +56,7 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<Stri
                 }
             }
             Instruction::Match => {
-                println!("match  :{:?}", &line[0..sp]);
+                // println!("match  :{:?}", &line[0..sp]);
                 let answer = format!(
                     "{}",
                     &line[0..sp]
@@ -101,6 +101,6 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<Stri
             longest = str;
         }
     }
-    println!("longest:{}", longest);
+    // println!("longest:{}", longest);
     Ok(longest)
 }

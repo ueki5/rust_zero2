@@ -67,9 +67,14 @@ fn match_file(expr: &str, input: &str, breadth: bool) -> Result<(), DynError> {
     for (idx, line) in reader.lines().enumerate() {
         let line = line?;
         for (i, _) in line.char_indices() {
-            if engine::do_matching(expr, &line[i..], breadth)?.len() > 0 {
-                println!("line={idx}:{line}");
-                break;
+            let result = engine::do_matching(expr, &line[i..], breadth);
+            match result {
+                Ok(match_exp) => {
+                    println!("line={idx}:{line}");
+                    println!("match={match_exp}");
+                    break;
+                }
+                _ => {},
             }
         }
     }

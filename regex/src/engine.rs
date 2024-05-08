@@ -44,7 +44,6 @@ pub fn print(expr: &str) -> Result<(), DynError> {
     let ast = parser::parse(expr)?;
     println!("AST: {:?}", ast);
 
-    println!();
     println!("code:");
     let code = codegen::get_code(&ast)?;
     for (n, c) in code.iter().enumerate() {
