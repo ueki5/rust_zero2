@@ -77,17 +77,21 @@ fn match_file(expr: &str, input: &str, breadth: bool) -> Result<(), DynError> {
 }
 #[test]
 fn test() {
+    _test(true);
+    _test(false);
+}
+fn _test(is_depth: bool) -> () {
     // char
-    assert_eq!(engine::do_matching("a", "a", true).unwrap(), String::from("a"));
+    assert_eq!(engine::do_matching("a", "a", is_depth).unwrap(), String::from("a"));
     // plus
-    assert_eq!(engine::do_matching("a+", "a", true).unwrap(), String::from("a"));
-    assert_eq!(engine::do_matching("a+", "aa", true).unwrap(), String::from("aa"));
+    assert_eq!(engine::do_matching("a+", "a", is_depth).unwrap(), String::from("a"));
+    assert_eq!(engine::do_matching("a+", "aa", is_depth).unwrap(), String::from("aa"));
     // star
-    assert_eq!(engine::do_matching("a*", "", true).unwrap(), String::from(""));
-    assert_eq!(engine::do_matching("a*", "a", true).unwrap(), String::from("a"));
-    assert_eq!(engine::do_matching("a*", "aa", true).unwrap(), String::from("aa"));
+    assert_eq!(engine::do_matching("a*", "", is_depth).unwrap(), String::from(""));
+    assert_eq!(engine::do_matching("a*", "a", is_depth).unwrap(), String::from("a"));
+    assert_eq!(engine::do_matching("a*", "aa", is_depth).unwrap(), String::from("aa"));
     // or
-    assert_eq!(engine::do_matching("a|b", "a", true).unwrap(), String::from("a"));
-    assert_eq!(engine::do_matching("a|b", "b", true).unwrap(), String::from("b"));
-    assert_eq!(engine::do_matching("a|b|c", "c", true).unwrap(), String::from("c"));
+    assert_eq!(engine::do_matching("a|b", "a", is_depth).unwrap(), String::from("a"));
+    assert_eq!(engine::do_matching("a|b", "b", is_depth).unwrap(), String::from("b"));
+    assert_eq!(engine::do_matching("a|b|c", "c", is_depth).unwrap(), String::from("c"));
 }
