@@ -12,7 +12,7 @@
                 "args": [
                     "build",
                     "--bin=regex",
-                    "--package=regex"
+                    "--package=regex@0.1.0"
                 ],
                 "filter": {
                     "name": "regex",
@@ -38,7 +38,7 @@
                     "test",
                     "--no-run",
                     "--bin=regex",
-                    "--package=regex"
+                    "--package=regex@0.1.0"
                 ],
                 "filter": {
                     "name": "regex",
