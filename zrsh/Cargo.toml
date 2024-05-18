@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-dirs = "4.0.0"
-rustyline = "10.0.0"
-nix = "0.25"
+dirs = "5.0.0"
+rustyline = "14.0.0"
+nix = "0.28.0"
 signal-hook = "0.3.14"
