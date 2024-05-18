@@ -7,6 +7,25 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Debug executable 'zrsh'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=zrsh",
+                    "--package=zrsh@0.1.0"
+                ],
+                "filter": {
+                    "name": "zrsh",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug executable 'regex'",
             "cargo": {
                 "args": [

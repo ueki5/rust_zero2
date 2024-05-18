@@ -13,8 +13,8 @@ fn main() -> Result<(), DynError> {
         logfile = h.to_str().unwrap_or(HISTORY_FILE);
     }
 
-    let sh = shell::Shell::new(logfile);
-    sh.run()?;
+    // let sh = shell::Shell::new(logfile);
+    // sh.run()?;
 
     Ok(())
 }
