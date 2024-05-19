@@ -7,7 +7,7 @@ use nix::{
     },
     unistd::{self, dup2, execvp, fork, pipe, setpgid, tcgetpgrp, tcsetpgrp, ForkResult, Pid},
 };
-use rustyline::{error::ReadlineError, Editor};
+use rustyline::{error::ReadlineError, Editor, DefaultEditor};
 use signal_hook::{consts::*, iterator::Signals};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -62,6 +62,11 @@ impl Shell {
 
     /// mainスレッド
     pub fn run(&self) -> Result<(), DynError> {
+        unsafe { signal(Signal::SIGTTOU, SigHandler::SigIgn).unwrap() };
+        let mut rl = DefaultEditor::new()?;
+        if let Err(e) = rl.load_history(&self.logfile) {
+            eprintln!("ZeroSh: ヒストリファイルの読み込みに失敗: {e}");
+        }
         // // SIGTTOUを無視に設定しないと、SIGTSTPが配送される
         // unsafe { signal(Signal::SIGTTOU, SigHandler::SigIgn).unwrap() };
 
