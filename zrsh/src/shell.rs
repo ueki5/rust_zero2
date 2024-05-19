@@ -12,7 +12,9 @@ use signal_hook::{consts::*, iterator::Signals};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     ffi::CString,
+    fs::File,
     mem::replace,
+    path::Path,
     path::PathBuf,
     process::exit,
     sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender},
@@ -64,6 +66,14 @@ impl Shell {
     pub fn run(&self) -> Result<(), DynError> {
         unsafe { signal(Signal::SIGTTOU, SigHandler::SigIgn).unwrap() };
         let mut rl = DefaultEditor::new()?;
+        if let path =  Path::new(&self.logfile) {
+            if !&path.is_file() {
+                let mut file = match File::create(&self.logfile) {
+                    Err(e) => eprintln!("ZeroSh: ヒストリファイルの作成に失敗: {e}"),
+                    Ok(file) => (),
+                };
+            }
+        }
         if let Err(e) = rl.load_history(&self.logfile) {
             eprintln!("ZeroSh: ヒストリファイルの読み込みに失敗: {e}");
         }
