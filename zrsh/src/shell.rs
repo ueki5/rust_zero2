@@ -77,13 +77,9 @@ impl Shell {
         if let Err(e) = rl.load_history(&self.logfile) {
             eprintln!("ZeroSh: ヒストリファイルの読み込みに失敗: {e}");
         }
-        // // SIGTTOUを無視に設定しないと、SIGTSTPが配送される
-        // unsafe { signal(Signal::SIGTTOU, SigHandler::SigIgn).unwrap() };
 
-        // let mut rl = Editor::<()>::new()?;
-        // if let Err(e) = rl.load_history(&self.logfile) {
-        //     eprintln!("ZeroSh: ヒストリファイルの読み込みに失敗: {e}");
-        // }
+        let (worker_tx, worker_rx) = channel();
+        let (shell_tx, shell_rx) = sync_channel(0);
 
         // // チャネルを生成し、signal_handlerとworkerスレッドを生成
         // let (worker_tx, worker_rx) = channel();
@@ -91,7 +87,7 @@ impl Shell {
         // spawn_sig_handler(worker_tx.clone())?;
         // Worker::new().spawn(worker_rx, shell_tx);
 
-        // let exit_val; // 終了コード
+        let exit_val; // 終了コード
         // let mut prev = 0; // 直前の終了コード
         // loop {
         //     // 1行読み込んで、その行をworkerに送信
@@ -135,11 +131,11 @@ impl Shell {
         //     }
         // }
 
-        // if let Err(e) = rl.save_history(&self.logfile) {
-        //     eprintln!("ZeroSh: ヒストリファイルの書き込みに失敗: {e}");
-        // }
-        // exit(exit_val);
-        exit(0)
+        if let Err(e) = rl.save_history(&self.logfile) {
+            eprintln!("ZeroSh: ヒストリファイルの書き込みに失敗: {e}");
+        }
+        exit_val = 0;
+        exit(exit_val);
     }
 }
 
