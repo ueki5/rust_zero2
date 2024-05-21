@@ -78,8 +78,8 @@ impl Shell {
             eprintln!("ZeroSh: ヒストリファイルの読み込みに失敗: {e}");
         }
 
-        let (worker_tx, worker_rx) = channel();
-        let (shell_tx, shell_rx) = sync_channel(0);
+        let (worker_tx, worker_rx) = channel::<()>();
+        let (shell_tx, shell_rx) = sync_channel::<()>(0);
 
         // // チャネルを生成し、signal_handlerとworkerスレッドを生成
         // let (worker_tx, worker_rx) = channel();
