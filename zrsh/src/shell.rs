@@ -78,8 +78,9 @@ impl Shell {
             eprintln!("ZeroSh: ヒストリファイルの読み込みに失敗: {e}");
         }
 
-        let (worker_tx, worker_rx) = channel::<()>();
-        let (shell_tx, shell_rx) = sync_channel::<()>(0);
+        let (worker_tx, worker_rx) = channel::<WorkerMsg>();
+        let (shell_tx, shell_rx) = sync_channel::<WorkerMsg>(0);
+        spawn_sig_handler(worker_tx.clone())?;
 
         // // チャネルを生成し、signal_handlerとworkerスレッドを生成
         // let (worker_tx, worker_rx) = channel();
@@ -141,6 +142,13 @@ impl Shell {
 
 /// signal_handlerスレッド
 fn spawn_sig_handler(tx: Sender<WorkerMsg>) -> Result<(), DynError> {
+    let mut signals = Signals::new(&[SIGINT, SIGTSTP, SIGCHLD])?;
+    thread::spawn(move || {
+        for sig in signals.forever() {
+            // シグナルを受信し、workerスレッドに受信
+            tx.send(WorkerMsg::Signal(sig)).unwrap();
+        }
+    });
     // let mut signals = Signals::new(&[SIGINT, SIGTSTP, SIGCHLD])?;
     // thread::spawn(move || {
     //     for sig in signals.forever() {
