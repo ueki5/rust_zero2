@@ -78,15 +78,11 @@ impl Shell {
             eprintln!("ZeroSh: ヒストリファイルの読み込みに失敗: {e}");
         }
 
+        // チャネルを生成し、signal_handlerとworkerスレッドを生成
         let (worker_tx, worker_rx) = channel::<WorkerMsg>();
         let (shell_tx, shell_rx) = sync_channel::<WorkerMsg>(0);
         spawn_sig_handler(worker_tx.clone())?;
-
-        // // チャネルを生成し、signal_handlerとworkerスレッドを生成
-        // let (worker_tx, worker_rx) = channel();
-        // let (shell_tx, shell_rx) = sync_channel(0);
-        // spawn_sig_handler(worker_tx.clone())?;
-        // Worker::new().spawn(worker_rx, shell_tx);
+        Worker::new().spawn(worker_rx, shell_tx);
 
         let exit_val; // 終了コード
         // let mut prev = 0; // 直前の終了コード
@@ -187,20 +183,19 @@ struct Worker {
     shell_pgid: Pid,                     // シェルのプロセスグループID
 }
 
-// impl Worker {
-//     fn new() -> Self {
-//         Worker {
-//             exit_val: 0,
-//             fg: None, // フォアグラウンドはシェル
-//             jobs: BTreeMap::new(),
-//             pgid_to_pids: HashMap::new(),
-//             pid_to_info: HashMap::new(),
+impl Worker {
+    fn new() -> Self {
+        Worker {
+            exit_val: 0,
+            fg: None, // フォアグラウンドはシェル
+            jobs: BTreeMap::new(),
+            pgid_to_pids: HashMap::new(),
+            pid_to_info: HashMap::new(),
 
-//             // シェルのプロセスグループIDを取得
-//             // shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap(),
-//             shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap(),
-//         }
-//     }
+            // シェルのプロセスグループIDを取得
+            // shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap(),
+        }
+    }
 
 //     /// workerスレッドを起動
 //     fn spawn(mut self, worker_rx: Receiver<WorkerMsg>, shell_tx: SyncSender<ShellMsg>) {
@@ -603,7 +598,7 @@ struct Worker {
 //         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
 //         true
 //     }
-// }
+}
 
 /// システムコール呼び出しのラッパ。EINTRならリトライ
 fn syscall<F, T>(f: F) -> Result<T, nix::Error>
