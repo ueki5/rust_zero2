@@ -193,7 +193,7 @@ impl Worker {
             pid_to_info: HashMap::new(),
 
             // シェルのプロセスグループIDを取得
-            // shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap(),
+            shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap(),
         }
     }
 
