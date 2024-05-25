@@ -19,6 +19,7 @@ use std::{
     process::exit,
     sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender},
     thread,
+    io,
 };
 
 /// ドロップ時にクロージャfを呼び出す型
@@ -80,58 +81,59 @@ impl Shell {
 
         // チャネルを生成し、signal_handlerとworkerスレッドを生成
         let (worker_tx, worker_rx) = channel::<WorkerMsg>();
-        let (shell_tx, shell_rx) = sync_channel::<WorkerMsg>(0);
+        let (shell_tx, shell_rx) = sync_channel::<ShellMsg>(0);
         spawn_sig_handler(worker_tx.clone())?;
         Worker::new().spawn(worker_rx, shell_tx);
 
         let exit_val; // 終了コード
-        // let mut prev = 0; // 直前の終了コード
-        // loop {
-        //     // 1行読み込んで、その行をworkerに送信
-        //     let face = if prev == 0 { '\u{1F642}' } else { '\u{1F480}' };
-        //     match rl.readline(&format!("ZeroSh {face} %> ")) {
-        //         Ok(line) => {
-        //             let line_trimed = line.trim(); // 前後の空白文字を削除
-        //             if line_trimed.is_empty() {
-        //                 continue; // 空のコマンドの場合は再読み込み
-        //             } else {
-        //                 rl.add_history_entry(line_trimed); // ヒストリファイルに追加
-        //             }
+        let mut prev = 0; // 直前の終了コード
+        loop {
+            // 一行読み込んで、その行をworkerに送信
+            let face = if prev == 0 { '\u{1F642}' } else { '\u{1F480}' };
+            match rl.readline(&format!("Zerosh {face} %>")) {
+                Ok(line) => {
+                    let line_trimed = line.trim(); // 前後の空白行を削除
+                    if line_trimed.is_empty() {
+                        continue; // 空白のコマンドの場合は再読み込み
+                    } else {
+                        rl.add_history_entry(line_trimed); // ヒストリーファイルに追加                        
+                    }
 
-        //             worker_tx.send(WorkerMsg::Cmd(line)).unwrap(); // workerに送信
-        //             match shell_rx.recv().unwrap() {
-        //                 ShellMsg::Continue(n) => prev = n, // 読み込み再開
-        //                 ShellMsg::Quit(n) => {
-        //                     // シェルを終了
-        //                     exit_val = n;
-        //                     break;
-        //                 }
-        //             }
-        //         }
-        //         Err(ReadlineError::Interrupted) => eprintln!("ZeroSh: 終了はCtrl+D"),
-        //         Err(ReadlineError::Eof) => {
-        //             worker_tx.send(WorkerMsg::Cmd("exit".to_string())).unwrap();
-        //             match shell_rx.recv().unwrap() {
-        //                 ShellMsg::Quit(n) => {
-        //                     // シェルを終了
-        //                     exit_val = n;
-        //                     break;
-        //                 }
-        //                 _ => panic!("exitに失敗"),
-        //             }
-        //         }
-        //         Err(e) => {
-        //             eprintln!("ZeroSh: 読み込みエラー\n{e}");
-        //             exit_val = 1;
-        //             break;
-        //         }
-        //     }
-        // }
+                    rl.add_history_entry(line_trimed); // ヒストリーファイルに追加                        
+                    worker_tx.send(WorkerMsg::Cmd(line_trimed.to_string())).unwrap(); // workerに送信
+                    match shell_rx.recv().unwrap() {
+                        ShellMsg::Continue(n) => prev = n, // 読み込み再開
+                        ShellMsg::Quit(n) => {
+                            // シェルを終了
+                            exit_val = n;
+                            break;
+                        }
+                    }
+                }
+                Err(ReadlineError::Interrupted) => eprintln!("Zerosh: 終了はCtri-D"),
+                Err(ReadlineError::Eof) => {
+                    worker_tx.send(WorkerMsg::Cmd("exit".to_string())).unwrap();
+                    match shell_rx.recv().unwrap() {
+                        ShellMsg::Quit(n) => {
+                            // シェルを終了
+                            exit_val = n;
+                            break;
+                        }
+                        _ => panic!("exitに失敗"),
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Zerosh: 読み込みエラー\n{e}");
+                    exit_val = 1;
+                    break;
+                }
+            }
+
+        }
 
         if let Err(e) = rl.save_history(&self.logfile) {
             eprintln!("ZeroSh: ヒストリファイルの書き込みに失敗: {e}");
         }
-        exit_val = 0;
         exit(exit_val);
     }
 }
@@ -193,10 +195,14 @@ impl Worker {
             pid_to_info: HashMap::new(),
 
             // シェルのプロセスグループIDを取得
-            shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap(),
+            // shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap()
+            shell_pgid: tcgetpgrp(io::stdin()).unwrap()
         }
     }
 
+    /// workerスレッドを起動
+    fn spawn(mut self, worker_rx: Receiver<WorkerMsg>, shell_tx: SyncSender<ShellMsg>) {
+    }
 //     /// workerスレッドを起動
 //     fn spawn(mut self, worker_rx: Receiver<WorkerMsg>, shell_tx: SyncSender<ShellMsg>) {
 //         thread::spawn(move || {
