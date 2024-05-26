@@ -187,6 +187,7 @@ struct Worker {
 
 impl Worker {
     fn new() -> Self {
+        let stdin = io::stdin(); // We get `Stdin` here.
         Worker {
             exit_val: 0,
             fg: None, // フォアグラウンドはシェル
