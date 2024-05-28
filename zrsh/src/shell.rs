@@ -21,6 +21,8 @@ use std::{
     thread,
     io,
 };
+use std::os::fd::AsFd;
+use std::os::fd::AsRawFd;
 
 /// ドロップ時にクロージャfを呼び出す型
 struct CleanUp<F>
@@ -154,7 +156,6 @@ fn spawn_sig_handler(tx: Sender<WorkerMsg>) -> Result<(), DynError> {
     //         tx.send(WorkerMsg::Signal(sig)).unwrap();
     //     }
     // });
-
     Ok(())
 }
 
@@ -188,6 +189,9 @@ struct Worker {
 impl Worker {
     fn new() -> Self {
         let stdin = io::stdin(); // We get `Stdin` here.
+        let raw_fd = stdin.as_fd().as_raw_fd();
+        let res = unsafe { libc::tcgetpgrp(raw_fd) };
+        let res2 = unsafe { libc::tcgetpgrp(libc::STDOUT_FILENO) };
         Worker {
             exit_val: 0,
             fg: None, // フォアグラウンドはシェル
@@ -197,7 +201,7 @@ impl Worker {
 
             // シェルのプロセスグループIDを取得
             // shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap()
-            shell_pgid: tcgetpgrp(io::stdin()).unwrap()
+            shell_pgid: tcgetpgrp(stdin).unwrap()
         }
     }
 
