@@ -23,6 +23,7 @@ use std::{
 };
 use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
+use std::ffi::CStr;
 
 /// ドロップ時にクロージャfを呼び出す型
 struct CleanUp<F>
@@ -149,13 +150,6 @@ fn spawn_sig_handler(tx: Sender<WorkerMsg>) -> Result<(), DynError> {
             tx.send(WorkerMsg::Signal(sig)).unwrap();
         }
     });
-    // let mut signals = Signals::new(&[SIGINT, SIGTSTP, SIGCHLD])?;
-    // thread::spawn(move || {
-    //     for sig in signals.forever() {
-    //         // シグナルを受信しworkerスレッドに送信
-    //         tx.send(WorkerMsg::Signal(sig)).unwrap();
-    //     }
-    // });
     Ok(())
 }
 
@@ -190,8 +184,10 @@ impl Worker {
     fn new() -> Self {
         let stdin = io::stdin(); // We get `Stdin` here.
         let raw_fd = stdin.as_fd().as_raw_fd();
-        let res = unsafe { libc::tcgetpgrp(raw_fd) };
-        let res2 = unsafe { libc::tcgetpgrp(libc::STDOUT_FILENO) };
+        let tty_char  = unsafe { libc::ttyname(raw_fd) };
+        let ttyname = unsafe { CStr::from_ptr(tty_char) }.to_str().unwrap();
+        println!("{ttyname}");
+
         Worker {
             exit_val: 0,
             fg: None, // フォアグラウンドはシェル
