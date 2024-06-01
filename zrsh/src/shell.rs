@@ -25,6 +25,8 @@ use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
 use std::ffi::CStr;
 use nix::errno::Errno;
+use nix::unistd::getpid as getpid2;
+use nix::unistd::getpgid as getpgid2;
 
 /// ドロップ時にクロージャfを呼び出す型
 struct CleanUp<F>
@@ -183,15 +185,15 @@ struct Worker {
 
 impl Worker {
     fn new() -> Self {
-        let stdin = io::stdin(); // We get `Stdin` here.
-        let fd = stdin.as_fd().as_raw_fd();
-        let tty_char  = unsafe { libc::ttyname(fd) };
-        let ttyname = unsafe { CStr::from_ptr(tty_char) }.to_str().unwrap();
-        let is_tty = unsafe { libc::isatty(fd) };
-        println!("tty={ttyname},is_tty={is_tty}");
-        let res = unsafe { libc::getpgid(fd) };
-        let pid = unsafe { getpid() };
-        let pgid = unsafe { getpgid(pid) };
+        // // デバッグ時にENOTTYでエラーになるため、色々お試し
+        // let stdin = io::stdin(); // We get `Stdin` here.
+        // let fd = stdin.as_fd().as_raw_fd();
+        // let tty_char  = unsafe { libc::ttyname(fd) };
+        // let ttyname = unsafe { CStr::from_ptr(tty_char) }.to_str().unwrap();
+        // let is_tty = unsafe { libc::isatty(fd) };
+        // println!("tty={ttyname},is_tty={is_tty}");
+        // let pid = nix::unistd::getpid();
+        // let pgid = nix::unistd::getpgid(Some(pid)).unwrap();
         Worker {
             exit_val: 0,
             fg: None, // フォアグラウンドはシェル
@@ -202,7 +204,7 @@ impl Worker {
             // シェルのプロセスグループIDを取得
             // shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap()
             // shell_pgid: tcgetpgrp(stdin).unwrap()
-            shell_pgid: pgid
+            shell_pgid: getpgid2(Some(getpid2())).unwrap()
         }
     }
 
