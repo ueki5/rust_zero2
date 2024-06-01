@@ -186,6 +186,8 @@ impl Worker {
         let raw_fd = stdin.as_fd().as_raw_fd();
         let tty_char  = unsafe { libc::ttyname(raw_fd) };
         let ttyname = unsafe { CStr::from_ptr(tty_char) }.to_str().unwrap();
+        let is_tty = unsafe { libc::isatty(raw_fd) };
+        
         println!("{ttyname}");
 
         Worker {
