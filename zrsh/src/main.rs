@@ -35,6 +35,8 @@ fn main() -> Result<(), DynError> {
     let raw_fd = stdin.as_fd().as_raw_fd();
     let res = unsafe { libc::tcgetpgrp(raw_fd) };
     let res2 = unsafe { libc::tcgetpgrp(libc::STDOUT_FILENO) };
+    let pid = unsafe { libc::getppid()};
+    let res3 = unsafe { libc::getpgid(pid)};
     // 確認用
 
     let mut logfile = HISTORY_FILE;
