@@ -1,11 +1,11 @@
 use crate::helper::DynError;
 use nix::{
-    libc,
+    libc::{self, getpgid, getpid},
     sys::{
         signal::{killpg, signal, SigHandler, Signal},
         wait::{waitpid, WaitPidFlag, WaitStatus},
     },
-    unistd::{self, dup2, execvp, fork, pipe, setpgid, tcgetpgrp, tcsetpgrp, ForkResult, Pid},
+    unistd::{self, dup2, execvp, fork, getppid, pipe, setpgid, tcgetpgrp, tcsetpgrp, ForkResult, Pid},
 };
 use rustyline::{error::ReadlineError, Editor, DefaultEditor};
 use signal_hook::{consts::*, iterator::Signals};
@@ -24,6 +24,7 @@ use std::{
 use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
 use std::ffi::CStr;
+use nix::errno::Errno;
 
 /// ドロップ時にクロージャfを呼び出す型
 struct CleanUp<F>
@@ -183,13 +184,14 @@ struct Worker {
 impl Worker {
     fn new() -> Self {
         let stdin = io::stdin(); // We get `Stdin` here.
-        let raw_fd = stdin.as_fd().as_raw_fd();
-        let tty_char  = unsafe { libc::ttyname(raw_fd) };
+        let fd = stdin.as_fd().as_raw_fd();
+        let tty_char  = unsafe { libc::ttyname(fd) };
         let ttyname = unsafe { CStr::from_ptr(tty_char) }.to_str().unwrap();
-        let is_tty = unsafe { libc::isatty(raw_fd) };
-        
-        println!("{ttyname}");
-
+        let is_tty = unsafe { libc::isatty(fd) };
+        println!("tty={ttyname},is_tty={is_tty}");
+        let res = unsafe { libc::getpgid(fd) };
+        let pid = unsafe { getpid() };
+        let pgid = unsafe { getpgid(pid) };
         Worker {
             exit_val: 0,
             fg: None, // フォアグラウンドはシェル
@@ -199,7 +201,8 @@ impl Worker {
 
             // シェルのプロセスグループIDを取得
             // shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap()
-            shell_pgid: tcgetpgrp(stdin).unwrap()
+            // shell_pgid: tcgetpgrp(stdin).unwrap()
+            shell_pgid: pgid
         }
     }
 
