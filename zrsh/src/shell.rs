@@ -203,13 +203,26 @@ impl Worker {
 
             // シェルのプロセスグループIDを取得
             // shell_pgid: tcgetpgrp(libc::STDIN_FILENO).unwrap()
-            // shell_pgid: tcgetpgrp(stdin).unwrap()
+            // shell_pgid: tcgetpgrp(io::stdin()).unwrap()
             shell_pgid: getpgid2(Some(getpid2())).unwrap()
         }
     }
 
     /// workerスレッドを起動
     fn spawn(mut self, worker_rx: Receiver<WorkerMsg>, shell_tx: SyncSender<ShellMsg>) {
+        thread::spawn(move || {
+            for msg in worker_rx.iter() {
+                match msg {
+                    WorkerMsg::Cmd(line) => {
+                        match parse_cmd(&line) {
+                            Ok(cmd) => (),
+                            _ => ()
+                        }
+                    },
+                    _ => ()
+                }
+            }
+        });
     }
 //     /// workerスレッドを起動
 //     fn spawn(mut self, worker_rx: Receiver<WorkerMsg>, shell_tx: SyncSender<ShellMsg>) {
@@ -496,6 +509,16 @@ impl Worker {
 //         true
 //     }
 
+    /// 組み込みコマンドの場合はtrueを返す
+    fn built_in_cmd(&mut self, cmd: &[(&str, Vec<&str>)], shell_tx: &SyncSender<ShellMsg>) -> bool {
+        if cmd.len() > 1 {
+            return false; // 組み込みコマンドのパイプは非対応
+        }
+        match cmd[0].0 {
+            "exit" => self.run_exit(&cmd[0].1, shell_tx),
+            _ => false
+        }
+    }
 //     /// 組み込みコマンドの場合はtrueを返す
 //     fn built_in_cmd(&mut self, cmd: &[(&str, Vec<&str>)], shell_tx: &SyncSender<ShellMsg>) -> bool {
 //         if cmd.len() > 1 {
@@ -534,6 +557,20 @@ impl Worker {
 //         true
 //     }
 
+    /// exitコマンドを実行
+    ///
+    /// 第1引数が指定された場合、それを終了コードとしてシェルを終了。
+    /// 引数がない場合は、最後に終了したプロセスの終了コードとしてシェルを終了。
+    fn run_exit(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
+        // 実行中のジョブがある場合は終了しない
+        if !self.jobs.is_empty() {
+            eprintln!("ジョブが実行中のため終了できません");
+            self.exit_val = -1; // 失敗
+            shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
+            return true;
+        }
+        true
+    }
 //     /// exitコマンドを実行
 //     ///
 //     /// 第1引数が指定された場合、それを終了コードとしてシェルを終了。
@@ -733,6 +770,5 @@ fn parse_cmd(line: &str) -> CmdResult {
         let (filename, args) = parse_cmd_one(cmd)?;
         result.push((filename, args));
     }
-
     Ok(result)
 }
