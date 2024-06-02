@@ -516,6 +516,9 @@ impl Worker {
         }
         match cmd[0].0 {
             "exit" => self.run_exit(&cmd[0].1, shell_tx),
+            "jobs" => self.run_jobs(shell_tx),
+            "fg" => self.run_fg(&cmd[0].1, shell_tx),
+            "cd" => self.run_cd(&cmd[0].1, shell_tx),
             _ => false
         }
     }
@@ -534,6 +537,10 @@ impl Worker {
 //         }
 //     }
 
+    /// カレントディレクトリを変更。引数がない場合は、ホームディレクトリに移動。第2引数以降は無視
+    fn run_cd(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
+        false
+    }
 //     /// カレントディレクトリを変更。引数がない場合は、ホームディレクトリに移動。第2引数以降は無視
 //     fn run_cd(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
 //         let path = if args.len() == 1 {
@@ -603,6 +610,10 @@ impl Worker {
 //         true
 //     }
 
+    /// jobsコマンドを実行
+    fn run_jobs(&mut self, shell_tx: &SyncSender<ShellMsg>) -> bool {
+        false
+    }
 //     /// jobsコマンドを実行
 //     fn run_jobs(&mut self, shell_tx: &SyncSender<ShellMsg>) -> bool {
 //         for (job_id, (pgid, cmd)) in &self.jobs {
@@ -618,6 +629,10 @@ impl Worker {
 //         true
 //     }
 
+    /// fgコマンドを実行
+    fn run_fg(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
+        false
+    }
 //     /// fgコマンドを実行
 //     fn run_fg(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
 //         self.exit_val = 1; // とりあえず失敗に設定
