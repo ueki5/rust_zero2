@@ -76,8 +76,8 @@ impl Shell {
         if let path =  Path::new(&self.logfile) {
             if !&path.is_file() {
                 let mut file = match File::create(&self.logfile) {
-                    Err(e) => eprintln!("ZeroSh: ヒストリファイルの作成に失敗: {e}"),
                     Ok(file) => (),
+                    Err(e) => eprintln!("ZeroSh: ヒストリファイルの作成に失敗: {e}"),
                 };
             }
         }
@@ -98,6 +98,7 @@ impl Shell {
             let face = if prev == 0 { '\u{1F642}' } else { '\u{1F480}' };
             match rl.readline(&format!("Zerosh {face} %>")) {
                 Ok(line) => {
+                    println!("line={}", line);
                     let line_trimed = line.trim(); // 前後の空白行を削除
                     if line_trimed.is_empty() {
                         continue; // 空白のコマンドの場合は再読み込み
@@ -107,24 +108,37 @@ impl Shell {
 
                     rl.add_history_entry(line_trimed); // ヒストリーファイルに追加                        
                     worker_tx.send(WorkerMsg::Cmd(line_trimed.to_string())).unwrap(); // workerに送信
-                    match shell_rx.recv().unwrap() {
-                        ShellMsg::Continue(n) => prev = n, // 読み込み再開
-                        ShellMsg::Quit(n) => {
+                    match shell_rx.recv() {
+                        Ok(ShellMsg::Continue(n)) => prev = n, // 読み込み再開
+                        Ok(ShellMsg::Quit(n)) => {
                             // シェルを終了
                             exit_val = n;
+                            break;
+                        },
+                        Err(e) => {
+                            println!("e={}", e);
+                            // シェルを終了
+                            exit_val = 1;
                             break;
                         }
                     }
                 }
                 Err(ReadlineError::Interrupted) => eprintln!("Zerosh: 終了はCtri-D"),
                 Err(ReadlineError::Eof) => {
+                    println!("read Eof");
                     worker_tx.send(WorkerMsg::Cmd("exit".to_string())).unwrap();
-                    match shell_rx.recv().unwrap() {
-                        ShellMsg::Quit(n) => {
+                    match shell_rx.recv() {
+                        Ok(ShellMsg::Quit(n)) => {
                             // シェルを終了
                             exit_val = n;
                             break;
-                        }
+                        },
+                        Err(e) => {
+                            println!("e={}", e);
+                            // シェルを終了
+                            exit_val = 1;
+                            break;
+                        },
                         _ => panic!("exitに失敗"),
                     }
                 }
@@ -134,12 +148,12 @@ impl Shell {
                     break;
                 }
             }
-
         }
 
         if let Err(e) = rl.save_history(&self.logfile) {
             eprintln!("ZeroSh: ヒストリファイルの書き込みに失敗: {e}");
         }
+        println!("exit run loop");
         exit(exit_val);
     }
 }
@@ -514,6 +528,7 @@ impl Worker {
         if cmd.len() > 1 {
             return false; // 組み込みコマンドのパイプは非対応
         }
+        println!("cmd={}", cmd[0].0);
         match cmd[0].0 {
             "exit" => self.run_exit(&cmd[0].1, shell_tx),
             "jobs" => self.run_jobs(shell_tx),
