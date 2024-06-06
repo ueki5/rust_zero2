@@ -229,7 +229,7 @@ impl Worker {
                 match msg {
                     WorkerMsg::Cmd(line) => {
                         match parse_cmd(&line) {
-                            Ok(cmd) => (),
+                            Ok(cmd) => (), // !!!後でやる!!!
                             _ => ()
                         }
                     },
@@ -537,20 +537,6 @@ impl Worker {
             _ => false
         }
     }
-//     /// 組み込みコマンドの場合はtrueを返す
-//     fn built_in_cmd(&mut self, cmd: &[(&str, Vec<&str>)], shell_tx: &SyncSender<ShellMsg>) -> bool {
-//         if cmd.len() > 1 {
-//             return false; // 組み込みコマンドのパイプは非対応なのでエラー
-//         }
-
-//         match cmd[0].0 {
-//             "exit" => self.run_exit(&cmd[0].1, shell_tx),
-//             "jobs" => self.run_jobs(shell_tx),
-//             "fg" => self.run_fg(&cmd[0].1, shell_tx),
-//             "cd" => self.run_cd(&cmd[0].1, shell_tx),
-//             _ => false,
-//         }
-//     }
 
     /// カレントディレクトリを変更。引数がない場合は、ホームディレクトリに移動。第2引数以降は無視
     fn run_cd(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
