@@ -10,7 +10,7 @@ use nix::{
 use rustyline::{error::ReadlineError, Editor, DefaultEditor};
 use signal_hook::{consts::*, iterator::Signals};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet}, ffi::CString, fs::File, io, mem::replace, os::fd::OwnedFd, path::{Path, PathBuf}, process::exit, sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender}, thread
+    borrow::Borrow, collections::{BTreeMap, HashMap, HashSet}, ffi::CString, fs::File, io, mem::replace, os::fd::OwnedFd, path::{Path, PathBuf}, process::exit, sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender}, thread
 };
 use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
@@ -480,17 +480,24 @@ impl Worker {
         }
         let cleanup_pipe = CleanUp {
             f: || {
-                if let Some(fd) = input {
+                if let Some(fd) = &input {
                     syscall(|| unistd::close(fd.as_raw_fd())).unwrap();
                 }
-                if let Some(fd) = output {
+                if let Some(fd) = &output {
                     syscall(|| unistd::close(fd.as_raw_fd())).unwrap();
                 }
             },
         };
         let pgid;
         // 一つ目のプロセスを作成
-        match fork_exec(Pid::from_raw(0), cmd[0].0, &cmd[0].1, None, output, input) {
+        match fork_exec(
+            Pid::from_raw(0), 
+            cmd[0].0, 
+            &cmd[0].1, 
+            None, 
+            output,
+            input
+        ){
             Ok(child) => {
                 pgid = child;
             },
