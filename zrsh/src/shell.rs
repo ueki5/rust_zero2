@@ -88,11 +88,14 @@ impl Shell {
         // チャネルを生成し、signal_handlerとworkerスレッドを生成
         let (worker_tx, worker_rx) = channel::<WorkerMsg>();
         let (shell_tx, shell_rx) = sync_channel::<ShellMsg>(0);
-        spawn_sig_handler(worker_tx.clone())?;
-        Worker::new().spawn(worker_rx, shell_tx);
+        spawn_sig_handler(worker_tx.clone())?; // シグナルを監視し、非同期チャネルへメッセージを送るスレッドを作成
+        Worker::new().spawn(worker_rx, shell_tx); // 非同期チャネルを監視し、入力コマンド、シグナルを処理するスレッドを作成。処理が完了したら同期チャネルへ結果を送信
 
         let exit_val; // 終了コード
         let mut prev = 0; // 直前の終了コード
+        // メインループ。
+        // 画面入力を監視し、コマンド処理をワーカスレッドへ丸投げ（非同期チャネルへコマンド送信）
+        // コマンド処理（ビルトインコマンド実行 or 子プロセス起動）が完了するまで、同期チャネルで結果を待つ
         loop {
             // 一行読み込んで、その行をworkerに送信
             let face = if prev == 0 { '\u{1F642}' } else { '\u{1F480}' };
@@ -229,8 +232,20 @@ impl Worker {
                 match msg {
                     WorkerMsg::Cmd(line) => {
                         match parse_cmd(&line) {
-                            Ok(cmd) => (), // !!!後でやる!!!
-                            _ => ()
+                            Ok(cmd) => {
+                                if self.built_in_cmd(&cmd, &shell_tx) {
+                                    // 組み込みコマンドならworker_rxから受信
+                                    continue;
+                                }
+                                if !self.spawn_child(&line, &cmd) {
+                                    // 子プロセス生成に成功した場合、シェルからの入力を再開
+                                    shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("ZeroSh: {e}");
+                                shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
+                            }
                         }
                     },
                     _ => ()
@@ -375,7 +390,15 @@ impl Worker {
 //         Some(true)
 //     }
 
-//     /// 新たなジョブIDを取得
+    /// 新たなジョブIDを取得
+    fn get_new_job_id(&self) -> Option<usize>{
+        for i in 0..=usize::MAX {
+            if !self.jobs.contains_key(&i) {
+                return Some(i);
+            }
+        }
+        None
+    }
 //     fn get_new_job_id(&self) -> Option<usize> {
 //         for i in 0..=usize::MAX {
 //             if !self.jobs.contains_key(&i) {
@@ -442,11 +465,18 @@ impl Worker {
 //         }
 //     }
 
-//     /// 子プロセスを生成。失敗した場合はシェルからの入力を再開させる必要あり
-//     fn spawn_child(&mut self, line: &str, cmd: &[(&str, Vec<&str>)]) -> bool {
-//         assert_ne!(cmd.len(), 0); // コマンドが空でないか検査
-
-//         // ジョブIDを取得
+    /// 子プロセスを生成。失敗した場合はシェルからの入力を再開させる必要あり
+    fn spawn_child(&mut self, line: &str, cmd: &[(&str, Vec<&str>)]) -> bool {
+        assert_ne!(cmd.len(), 0); // コマンドが空でないか確認
+        // ジョブIDを確認
+        let job_id = if let Some(id) = self.get_new_job_id() {
+            id
+        } else {
+            eprintln!("ZeroSh: 管理可能なジョブの最大数に到達しました");
+            return false;
+        };
+        return false; // あとでやる
+    } 
 //         let job_id = if let Some(id) = self.get_new_job_id() {
 //             id
 //         } else {
