@@ -10,16 +10,7 @@ use nix::{
 use rustyline::{error::ReadlineError, Editor, DefaultEditor};
 use signal_hook::{consts::*, iterator::Signals};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    ffi::CString,
-    fs::File,
-    mem::replace,
-    path::Path,
-    path::PathBuf,
-    process::exit,
-    sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender},
-    thread,
-    io,
+    collections::{BTreeMap, HashMap, HashSet}, ffi::CString, fs::File, io, mem::replace, os::fd::OwnedFd, path::{Path, PathBuf}, process::exit, sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender}, thread
 };
 use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
@@ -475,53 +466,46 @@ impl Worker {
             eprintln!("ZeroSh: 管理可能なジョブの最大数に到達しました");
             return false;
         };
-        return false; // あとでやる
-    } 
-//         let job_id = if let Some(id) = self.get_new_job_id() {
-//             id
-//         } else {
-//             eprintln!("ZeroSh: 管理可能なジョブの最大値に到達");
-//             return false;
-//         };
-
-//         if cmd.len() > 2 {
-//             eprintln!("ZeroSh: 三つ以上のコマンドによるパイプはサポートしていません");
-//             return false;
-//         }
-
-//         let mut input = None; // 二つめのプロセスの標準入力
-//         let mut output = None; // 一つめのプロセスの標準出力
-//         if cmd.len() == 2 {
-//             // パイプを作成
-//             let p = pipe().unwrap();
-//             input = Some(p.0);
-//             output = Some(p.1);
-//         }
-
-//         // パイプを閉じる関数を定義
-//         let cleanup_pipe = CleanUp {
-//             f: || {
-//                 if let Some(fd) = input {
-//                     syscall(|| unistd::close(fd)).unwrap();
-//                 }
-//                 if let Some(fd) = output {
-//                     syscall(|| unistd::close(fd)).unwrap();
-//                 }
-//             },
-//         };
-
-//         let pgid;
-//         // 一つめのプロセスを生成
-//         match fork_exec(Pid::from_raw(0), cmd[0].0, &cmd[0].1, None, output, input) {
-//             Ok(child) => {
-//                 pgid = child;
-//             }
-//             Err(e) => {
-//                 eprintln!("ZeroSh: プロセス生成エラー: {e}");
-//                 return false;
-//             }
-//         }
-
+        if cmd.len() > 2 {
+            eprintln!("3つ以上のコマンドによるパイプはサポートしていません");
+            return false;
+        }
+        let mut input = None;
+        let mut output = None;
+        if cmd.len() == 2 {
+            // パイプを作成
+            let p = pipe().unwrap();
+            input = Some(p.0);
+            output = Some(p.1);
+        }
+        let cleanup_pipe = CleanUp {
+            f: || {
+                if let Some(fd) = input {
+                    syscall(|| unistd::close(fd.as_raw_fd())).unwrap();
+                }
+                if let Some(fd) = output {
+                    syscall(|| unistd::close(fd.as_raw_fd())).unwrap();
+                }
+            },
+        };
+        let pgid;
+        // 一つ目のプロセスを作成
+        match fork_exec(Pid::from_raw(0), cmd[0].0, &cmd[0].1, None, output, input) {
+            Ok(child) => {
+                pgid = child;
+            },
+            Err(e) => {
+                eprintln!("ZeroShell: プロセス生成エラー");
+                return false;
+            }
+        }
+        // プロセス、ジョブの情報を追加
+        let info = ProcInfo {
+            state: ProcState::Run,
+            pgid,
+        };
+        true
+    }
 //         // プロセス、ジョブの情報を追加
 //         let info = ProcInfo {
 //             state: ProcState::Run,
@@ -710,20 +694,32 @@ where
     }
 }
 
-// /// プロセスグループIDを指定してfork & exec
-// /// pgidが0の場合は子プロセスのPIDが、プロセスグループIDとなる
-// ///
-// /// - inputがSome(fd)の場合は、標準入力をfdと設定
-// /// - outputSome(fd)の場合は、標準出力をfdと設定
-// /// - fd_closeがSome(fd)の場合は、fork後にfdをクローズ
-// fn fork_exec(
-//     pgid: Pid,
-//     filename: &str,
-//     args: &[&str],
-//     input: Option<i32>,
-//     output: Option<i32>,
-//     fd_close: Option<i32>,
-// ) -> Result<Pid, DynError> {
+/// プロセスグループIDを指定してfork & exec
+/// pgidが0の場合は子プロセスのPIDが、プロセスグループIDとなる
+///
+/// - inputがSome(fd)の場合は、標準入力をfdと設定
+/// - outputSome(fd)の場合は、標準出力をfdと設定
+/// - fd_closeがSome(fd)の場合は、fork後にfdをクローズ
+fn fork_exec(
+    pgid: Pid,
+    filename: &str,
+    args: &[&str],
+    input: Option<OwnedFd>,
+    output: Option<OwnedFd>,
+    fd_close: Option<OwnedFd>,
+) -> Result<Pid, DynError> {
+    let filename = CString::new(filename).unwrap();
+    let args: Vec<CString> = args.iter().map(|s| CString::new(*s).unwrap()).collect();
+
+    match syscall(|| unsafe { fork() })? {
+        ForkResult::Parent { child, .. } => {
+            // 子プロセスのプロセスグループIDをpgidに設定
+            setpgid(child, pgid).unwrap();
+        },
+        _ => return Ok(pgid)
+    }
+    return Ok(pgid);
+}
 //     let filename = CString::new(filename).unwrap();
 //     let args: Vec<CString> = args.iter().map(|s| CString::new(*s).unwrap()).collect();
 
