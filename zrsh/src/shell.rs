@@ -254,7 +254,10 @@ impl Worker {
                             }
                         }
                     }
-                    _ => (),
+                    WorkerMsg::Signal(SIGCHLD) => {
+                        self.wait_child(&shell_tx); // 子プロセスの状態変化管理
+                    }
+                    _ => (), // 無視
                 }
             }
         });
