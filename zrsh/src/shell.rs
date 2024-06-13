@@ -91,8 +91,11 @@ impl Shell {
         // チャネルを生成し、signal_handlerとworkerスレッドを生成
         let (worker_tx, worker_rx) = channel::<WorkerMsg>();
         let (shell_tx, shell_rx) = sync_channel::<ShellMsg>(0);
-        spawn_sig_handler(worker_tx.clone())?; // シグナルを監視し、非同期チャネルへメッセージを送るスレッドを作成
-        Worker::new().spawn(worker_rx, shell_tx); // 非同期チャネルを監視し、入力コマンド、シグナルを処理するスレッドを作成。処理が完了したら同期チャネルへ結果を送信
+        // シグナルを監視し、非同期チャネルへメッセージを送るスレッドを作成
+        spawn_sig_handler(worker_tx.clone())?;
+        // 非同期チャネルを監視し、入力コマンド、シグナルを処理するスレッド（ワーカスレッド）を作成。
+        // 処理が完了したら同期チャネルへ結果を送信
+        Worker::new().spawn(worker_rx, shell_tx);
 
         let exit_val; // 終了コード
         let mut prev = 0; // 直前の終了コード
@@ -231,7 +234,7 @@ impl Worker {
         }
     }
 
-    /// workerスレッドを起動
+    /// ワーカスレッドを起動
     fn spawn(mut self, worker_rx: Receiver<WorkerMsg>, shell_tx: SyncSender<ShellMsg>) {
         thread::spawn(move || {
             for msg in worker_rx.iter() {
@@ -295,46 +298,46 @@ impl Worker {
     //         });
     //     }
 
-    //     /// 子プロセスの状態変化を管理
-    //     fn wait_child(&mut self, shell_tx: &SyncSender<ShellMsg>) {
-    //         // WUNTRACED: 子プロセスの停止
-    //         // WNOHANG: ブロックしない
-    //         // WCONTINUED: 実行再開時
-    //         let flag = Some(WaitPidFlag::WUNTRACED | WaitPidFlag::WNOHANG | WaitPidFlag::WCONTINUED);
+    /// 子プロセスの状態変化を管理
+    fn wait_child(&mut self, shell_tx: &SyncSender<ShellMsg>) {
+        // WUNTRACED: 子プロセスの停止
+        // WNOHANG: ブロックしない
+        // WCONTINUED: 実行再開時
+        let flag = Some(WaitPidFlag::WUNTRACED | WaitPidFlag::WNOHANG | WaitPidFlag::WCONTINUED);
+        loop {
+            match syscall(|| waitpid(Pid::from_raw(-1), flag)) {
+                Ok(WaitStatus::Exited(pid, status)) => {
+                    // プロセスが終了
+                    self.exit_val = status;
+                    // self.process_term(pid, shell_tx);
+                }
+                Ok(WaitStatus::Signaled(pid, sig, core)) => {
+                    // プロセスがシグナルにより終了
+                    eprintln!(
+                        "\nZeroSh: 子プロセスがシグナルにより終了{}: pid = {pid}, signal = {sig}",
+                        if core { "（コアダンプ）" } else { "" }
+                    );
+                    self.exit_val = sig as i32 + 128; // 終了コードを保存
 
-    //         loop {
-    //             match syscall(|| waitpid(Pid::from_raw(-1), flag)) {
-    //                 Ok(WaitStatus::Exited(pid, status)) => {
-    //                     // プロセスが終了
-    //                     self.exit_val = status; // 終了コードを保存
-    //                     self.process_term(pid, shell_tx);
-    //                 }
-    //                 Ok(WaitStatus::Signaled(pid, sig, core)) => {
-    //                     // プロセスがシグナルにより終了
-    //                     eprintln!(
-    //                         "\nZeroSh: 子プロセスがシグナルにより終了{}: pid = {pid}, signal = {sig}",
-    //                         if core { "（コアダンプ）" } else { "" }
-    //                     );
-    //                     self.exit_val = sig as i32 + 128; // 終了コードを保存
-    //                     self.process_term(pid, shell_tx);
-    //                 }
-    //                 // プロセスが停止
-    //                 Ok(WaitStatus::Stopped(pid, _sig)) => self.process_stop(pid, shell_tx),
-    //                 // プロセスが実行再開
-    //                 Ok(WaitStatus::Continued(pid)) => self.process_continue(pid),
-    //                 Ok(WaitStatus::StillAlive) => return, // waitすべき子プロセスはいない
-    //                 Err(nix::Error::ECHILD) => return,    // 子プロセスはいない
-    //                 Err(e) => {
-    //                     eprintln!("\nZeroSh: waitが失敗: {e}");
-    //                     exit(1);
-    //                 }
-    //                 #[cfg(any(target_os = "linux", target_os = "android"))]
-    //                 Ok(WaitStatus::PtraceEvent(pid, _, _) | WaitStatus::PtraceSyscall(pid)) => {
-    //                     self.process_stop(pid, shell_tx)
-    //                 }
-    //             }
-    //         }
-    //     }
+                    // self.process_term(pid, shell_tx);
+                }
+                // プロセスが停止
+                Ok(WaitStatus::Stopped(pid, _sig)) => (), // self.process_stop(pid, shell_tx)
+                // プロセスが実行再開
+                Ok(WaitStatus::Continued(pid)) => (), // self.process_continue(pid),
+                Ok(WaitStatus::StillAlive) => return, // waitすべき子プロセスはいない
+                Err(nix::Error::ECHILD) => return,    // 子プロセスはいない
+                Err(e) => {
+                    eprintln!("\nZeroSh: waitが失敗: {e}");
+                    exit(1);
+                }
+                #[cfg(any(target_os = "linux", target_os = "android"))]
+                Ok(WaitStatus::PtraceEvent(pid, _, _) | WaitStatus::PtraceSyscall(pid)) => {
+                    // self.process_stop(pid, shell_tx)
+                }
+            }
+        }
+    }
 
     //     /// プロセスの再開処理
     //     fn process_continue(&mut self, pid: Pid) {
