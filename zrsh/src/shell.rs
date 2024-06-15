@@ -265,38 +265,6 @@ impl Worker {
             }
         });
     }
-    //     /// workerスレッドを起動
-    //     fn spawn(mut self, worker_rx: Receiver<WorkerMsg>, shell_tx: SyncSender<ShellMsg>) {
-    //         thread::spawn(move || {
-    //             for msg in worker_rx.iter() {
-    //                 match msg {
-    //                     WorkerMsg::Cmd(line) => {
-    //                         match parse_cmd(&line) {
-    //                             Ok(cmd) => {
-    //                                 if self.built_in_cmd(&cmd, &shell_tx) {
-    //                                     // 組み込みコマンドならworker_rxから受信
-    //                                     continue;
-    //                                 }
-
-    //                                 if !self.spawn_child(&line, &cmd) {
-    //                                     // 子プロセス生成に失敗した場合シェルからの入力を再開
-    //                                     shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
-    //                                 }
-    //                             }
-    //                             Err(e) => {
-    //                                 eprintln!("ZeroSh: {e}");
-    //                                 shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
-    //                             }
-    //                         }
-    //                     }
-    //                     WorkerMsg::Signal(SIGCHLD) => {
-    //                         self.wait_child(&shell_tx); // 子プロセスの状態変化管理
-    //                     }
-    //                     _ => (), // 無視
-    //                 }
-    //             }
-    //         });
-    //     }
 
     /// 子プロセスの状態変化を管理
     fn wait_child(&mut self, shell_tx: &SyncSender<ShellMsg>) {
@@ -309,7 +277,7 @@ impl Worker {
                 Ok(WaitStatus::Exited(pid, status)) => {
                     // プロセスが終了
                     self.exit_val = status;
-                    // self.process_term(pid, shell_tx);
+                    self.process_term(pid, shell_tx);
                 }
                 Ok(WaitStatus::Signaled(pid, sig, core)) => {
                     // プロセスがシグナルにより終了
@@ -352,13 +320,13 @@ impl Worker {
     //         self.manage_job(job_id, pgid, shell_tx); // 必要ならフォアグラウンドプロセスをシェルに設定
     //     }
 
-    //     /// プロセスの終了処理
-    //     fn process_term(&mut self, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {
-    //         // プロセスの情報を削除し、必要ならフォアグラウンドプロセスをシェルに設定
-    //         if let Some((job_id, pgid)) = self.remove_pid(pid) {
-    //             self.manage_job(job_id, pgid, shell_tx);
-    //         }
-    //     }
+    /// プロセスの終了処理
+    fn process_term(&mut self, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {
+        // プロセスの情報を削除し、必要ならフォアグランドプロセスをシェルに設定
+        if let Some((job_id, pgid)) = self.remove_pid(pid) {
+            self.manage_job(job_id, pgid, shell_tx);
+        }
+    }
 
     //     /// プロセスの実行状態を設定し、以前の状態を返す。
     //     /// pidが存在しないプロセスの場合はNoneを返す。
@@ -367,16 +335,16 @@ impl Worker {
     //         Some(replace(&mut info.state, state))
     //     }
 
-    //     /// プロセスの情報を削除し、削除できた場合プロセスの所属する。
-    //     /// (ジョブID, プロセスグループID)を返す。
-    //     /// 存在しないプロセスの場合はNoneを返す。
-    //     fn remove_pid(&mut self, pid: Pid) -> Option<(usize, Pid)> {
-    //         let pgid = self.pid_to_info.get(&pid)?.pgid; // プロセスグループIDを取得
-    //         let it = self.pgid_to_pids.get_mut(&pgid)?;
-    //         it.1.remove(&pid); // プロセスグループからpidを削除
-    //         let job_id = it.0; // ジョブIDを取得
-    //         Some((job_id, pgid))
-    //     }
+    /// プロセスの情報を削除し、削除できた場合プロセスの所属する
+    /// （ジョブID、プロセスグループID）を返す。
+    /// 存在しないプロセスの場合はNoneを返す。
+    fn remove_pid(&mut self, pid: Pid) -> Option<(usize, Pid)> {
+        let pgid = self.pid_to_info.get(&pid)?.pgid; // プロセスグループIDを取得
+        let it = self.pgid_to_pids.get_mut(&pgid)?;
+        it.1.remove(&pid); // プロセスグループからpidを削除
+        let job_id = it.0; // ジョブIDを取得
+        Some((job_id, pgid))
+    }
 
     //     /// ジョブ情報を削除し、関連するプロセスグループの情報も削除
     //     fn remove_job(&mut self, job_id: usize) {
