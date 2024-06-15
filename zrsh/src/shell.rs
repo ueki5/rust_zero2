@@ -372,6 +372,15 @@ impl Worker {
     //         self.pgid_to_pids.get(&pgid).unwrap().1.is_empty()
     //     }
 
+    /// プロセスグループのプロセス全てが停止中なら真
+    fn is_group_stop(&self, pgid: Pid) -> Option<bool> {
+        for pid in self.pgid_to_pids.get(&pgid)?.1.iter() {
+            if self.pid_to_info.get(pid).unwrap().state == ProcState::Run {
+                return Some(false);
+            }
+        }
+        Some(true)
+    }
     //     /// プロセスグループのプロセスすべてが停止中なら真
     //     fn is_group_stop(&self, pgid: Pid) -> Option<bool> {
     //         for pid in self.pgid_to_pids.get(&pgid)?.1.iter() {
@@ -422,7 +431,7 @@ impl Worker {
     //     }
 
     /// シェルをフォアグランドに設定
-    fn set_shell_fg(&self, shell_tx: &SyncSender<ShellMsg>) {
+    fn set_shell_fg(&mut self, shell_tx: &SyncSender<ShellMsg>) {
         self.fg = None;
         tcsetpgrp(io::stdin().as_fd(), self.shell_pgid).unwrap();
         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
