@@ -346,6 +346,14 @@ impl Worker {
         Some((job_id, pgid))
     }
 
+    /// ジョブ情報を削除し、関連するプロセスグループの情報も削除
+    fn remove_job(&mut self, job_id: usize) {
+        if let Some((pgid, _)) = self.jobs.remove(&job_id) {
+            if let Some((_, pids)) = self.jobs.remove(&job_id){
+                assert!(pids.is_empty()); // ジョブを削除するときはプロセスグループは空のはず
+            }
+        }
+    }
     //     /// ジョブ情報を削除し、関連するプロセスグループの情報も削除
     //     fn remove_job(&mut self, job_id: usize) {
     //         if let Some((pgid, _)) = self.jobs.remove(&job_id) {
@@ -355,6 +363,10 @@ impl Worker {
     //         }
     //     }
 
+    /// 空のプロセスグループなら真
+    fn is_group_empty(&self, pgid: Pid) -> bool {
+        self.pgid_to_pids.get(&pgid).unwrap().1.is_empty()
+    }
     //     /// 空のプロセスグループなら真
     //     fn is_group_empty(&self, pgid: Pid) -> bool {
     //         self.pgid_to_pids.get(&pgid).unwrap().1.is_empty()
@@ -416,10 +428,34 @@ impl Worker {
     //         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
     //     }
 
-    //     /// ジョブの管理。引数には変化のあったジョブとプロセスグループを指定
-    //     ///
-    //     /// - フォアグラウンドプロセスが空の場合、シェルをフォアグラウンドに設定
-    //     /// - フォアグラウンドプロセスがすべて停止中の場合、シェルをフォアグラウンドに設定
+    /// ジョブの管理。比企宇うには変化のあったジョブとっプロセスグループを指定
+    /// 
+    /// - フォアグランドプロセスが空の場合、シェルをフォアグランドプロセスに設定
+    /// - フォアグランドプロセスがすべて停止中の場合、シェルをフォアグランドに設定
+    fn manage_job(&mut self, job_id: usize, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {
+        let is_fg = self.fg.map_or(false, |x| pgid == x); // フォアグランドのプロセスか？
+        let line = &self.jobs.get(&job_id).unwrap().1;
+        if is_fg {
+            // 状態が変化したプロセスはフォアグランド
+            if self.is_group_empty(pgid) {
+                // フォアグランドプロセスが空の場合、
+                // ジョブ情報を削除し、シェルをフォアグランドに設定
+                eprintln!("[{job_id}] 終了\t{line}");
+                self.remove_job(job_id);
+                self.set_shell_fg(shell_tx);
+            } else if self.is_group_stop(pgid).unwrap() {
+                eprintln!("\n[{job_id}] 停止\t{line}");
+                self.set_shell_fg(shell_tx);
+            } else {
+                // プロセスグループが空の場合、ジョブを削除
+                if self.is_group_empty(pgid) {
+                    // フォアグランドプロセスが空の場合、
+                    eprintln!("[{job_id}] 終了\t{line}");
+                    self.remove_job(job_id);
+                }
+            }
+        }
+    }
     //     fn manage_job(&mut self, job_id: usize, pgid: Pid, shell_tx: &SyncSender<ShellMsg>) {
     //         let is_fg = self.fg.map_or(false, |x| pgid == x); // フォアグラウンドのプロセスか？
     //         let line = &self.jobs.get(&job_id).unwrap().1;
