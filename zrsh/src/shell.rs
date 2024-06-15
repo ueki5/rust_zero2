@@ -421,6 +421,12 @@ impl Worker {
     //         self.pgid_to_pids.insert(pgid, (job_id, procs)); // プロセスグループの情報を追加
     //     }
 
+    /// シェルをフォアグランドに設定
+    fn set_shell_fg(&self, shell_tx: &SyncSender<ShellMsg>) {
+        self.fg = None;
+        tcsetpgrp(io::stdin().as_fd(), self.shell_pgid).unwrap();
+        shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
+    }
     //     /// シェルをフォアグラウンドに設定
     //     fn set_shell_fg(&mut self, shell_tx: &SyncSender<ShellMsg>) {
     //         self.fg = None;
@@ -428,11 +434,11 @@ impl Worker {
     //         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
     //     }
 
-    /// ジョブの管理。比企宇うには変化のあったジョブとっプロセスグループを指定
+    /// ジョブの管理。引数には変化のあったジョブとプロセスグループを指定
     /// 
     /// - フォアグランドプロセスが空の場合、シェルをフォアグランドプロセスに設定
     /// - フォアグランドプロセスがすべて停止中の場合、シェルをフォアグランドに設定
-    fn manage_job(&mut self, job_id: usize, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {
+    fn manage_job(&mut self, job_id: usize, pgid: Pid, shell_tx: &SyncSender<ShellMsg>) {
         let is_fg = self.fg.map_or(false, |x| pgid == x); // フォアグランドのプロセスか？
         let line = &self.jobs.get(&job_id).unwrap().1;
         if is_fg {
