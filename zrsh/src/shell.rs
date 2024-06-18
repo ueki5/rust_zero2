@@ -287,7 +287,7 @@ impl Worker {
                     );
                     self.exit_val = sig as i32 + 128; // 終了コードを保存
 
-                    // self.process_term(pid, shell_tx);
+                    self.process_term(pid, shell_tx);
                 }
                 // プロセスが停止
                 Ok(WaitStatus::Stopped(pid, _sig)) => (), // self.process_stop(pid, shell_tx)
@@ -312,6 +312,8 @@ impl Worker {
     //         self.set_pid_state(pid, ProcState::Run);
     //     }
 
+    /// プロセスの停止処理
+    fn process_stop(&mut self, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {}
     //     /// プロセスの停止処理
     //     fn process_stop(&mut self, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {
     //         self.set_pid_state(pid, ProcState::Stop); // プロセスを停止中に設定
@@ -349,7 +351,7 @@ impl Worker {
     /// ジョブ情報を削除し、関連するプロセスグループの情報も削除
     fn remove_job(&mut self, job_id: usize) {
         if let Some((pgid, _)) = self.jobs.remove(&job_id) {
-            if let Some((_, pids)) = self.jobs.remove(&job_id){
+            if let Some((_, pids)) = self.jobs.remove(&job_id) {
                 assert!(pids.is_empty()); // ジョブを削除するときはプロセスグループは空のはず
             }
         }
@@ -444,7 +446,7 @@ impl Worker {
     //     }
 
     /// ジョブの管理。引数には変化のあったジョブとプロセスグループを指定
-    /// 
+    ///
     /// - フォアグランドプロセスが空の場合、シェルをフォアグランドプロセスに設定
     /// - フォアグランドプロセスがすべて停止中の場合、シェルをフォアグランドに設定
     fn manage_job(&mut self, job_id: usize, pgid: Pid, shell_tx: &SyncSender<ShellMsg>) {
