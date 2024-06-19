@@ -290,9 +290,9 @@ impl Worker {
                     self.process_term(pid, shell_tx);
                 }
                 // プロセスが停止
-                Ok(WaitStatus::Stopped(pid, _sig)) => (), // self.process_stop(pid, shell_tx)
+                Ok(WaitStatus::Stopped(pid, _sig)) => self.process_stop(pid, shell_tx),
                 // プロセスが実行再開
-                Ok(WaitStatus::Continued(pid)) => (), // self.process_continue(pid),
+                Ok(WaitStatus::Continued(pid)) => self.process_continue(pid),
                 Ok(WaitStatus::StillAlive) => return, // waitすべき子プロセスはいない
                 Err(nix::Error::ECHILD) => return,    // 子プロセスはいない
                 Err(e) => {
@@ -301,26 +301,24 @@ impl Worker {
                 }
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 Ok(WaitStatus::PtraceEvent(pid, _, _) | WaitStatus::PtraceSyscall(pid)) => {
-                    // self.process_stop(pid, shell_tx)
+                    self.process_stop(pid, shell_tx)
                 }
             }
         }
     }
 
-    //     /// プロセスの再開処理
-    //     fn process_continue(&mut self, pid: Pid) {
-    //         self.set_pid_state(pid, ProcState::Run);
-    //     }
+    /// プロセスの再開処理
+    fn process_continue(&mut self, pid: Pid) {
+        self.set_pid_state(pid, ProcState::Run);
+    }
 
     /// プロセスの停止処理
-    fn process_stop(&mut self, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {}
-    //     /// プロセスの停止処理
-    //     fn process_stop(&mut self, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {
-    //         self.set_pid_state(pid, ProcState::Stop); // プロセスを停止中に設定
-    //         let pgid = self.pid_to_info.get(&pid).unwrap().pgid; // プロセスグループIDを取得
-    //         let job_id = self.pgid_to_pids.get(&pgid).unwrap().0; // ジョブIDを取得
-    //         self.manage_job(job_id, pgid, shell_tx); // 必要ならフォアグラウンドプロセスをシェルに設定
-    //     }
+    fn process_stop(&mut self, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {
+        self.set_pid_state(pid, ProcState::Stop); // プロセスを停止中に設定
+        let pgid = self.pid_to_info.get(&pid).unwrap().pgid; // プロセスグループIDを取得
+        let job_id = self.pgid_to_pids.get(&pgid).unwrap().0; // ジョブIDを取得
+        self.manage_job(job_id, pgid, shell_tx); // 必要ならフォアグランドプロセスをシェルに設定
+    }
 
     /// プロセスの終了処理
     fn process_term(&mut self, pid: Pid, shell_tx: &SyncSender<ShellMsg>) {
@@ -330,12 +328,12 @@ impl Worker {
         }
     }
 
-    //     /// プロセスの実行状態を設定し、以前の状態を返す。
-    //     /// pidが存在しないプロセスの場合はNoneを返す。
-    //     fn set_pid_state(&mut self, pid: Pid, state: ProcState) -> Option<ProcState> {
-    //         let info = self.pid_to_info.get_mut(&pid)?;
-    //         Some(replace(&mut info.state, state))
-    //     }
+    /// プロセスの実行状態を設定し、以前の状態を返す。
+    /// pidが存在しないプロセスの場合はNoneを返す。
+    fn set_pid_state(&mut self, pid: Pid, state: ProcState) -> Option<ProcState> {
+        let info = self.pid_to_info.get_mut(&pid)?;
+        Some(replace(&mut info.state, state))
+    }
 
     /// プロセスの情報を削除し、削除できた場合プロセスの所属する
     /// （ジョブID、プロセスグループID）を返す。
@@ -356,23 +354,11 @@ impl Worker {
             }
         }
     }
-    //     /// ジョブ情報を削除し、関連するプロセスグループの情報も削除
-    //     fn remove_job(&mut self, job_id: usize) {
-    //         if let Some((pgid, _)) = self.jobs.remove(&job_id) {
-    //             if let Some((_, pids)) = self.pgid_to_pids.remove(&pgid) {
-    //                 assert!(pids.is_empty()); // ジョブを削除するときはプロセスグループは空のはず
-    //             }
-    //         }
-    //     }
 
     /// 空のプロセスグループなら真
     fn is_group_empty(&self, pgid: Pid) -> bool {
         self.pgid_to_pids.get(&pgid).unwrap().1.is_empty()
     }
-    //     /// 空のプロセスグループなら真
-    //     fn is_group_empty(&self, pgid: Pid) -> bool {
-    //         self.pgid_to_pids.get(&pgid).unwrap().1.is_empty()
-    //     }
 
     /// プロセスグループのプロセス全てが停止中なら真
     fn is_group_stop(&self, pgid: Pid) -> Option<bool> {
@@ -383,15 +369,6 @@ impl Worker {
         }
         Some(true)
     }
-    //     /// プロセスグループのプロセスすべてが停止中なら真
-    //     fn is_group_stop(&self, pgid: Pid) -> Option<bool> {
-    //         for pid in self.pgid_to_pids.get(&pgid)?.1.iter() {
-    //             if self.pid_to_info.get(pid).unwrap().state == ProcState::Run {
-    //                 return Some(false);
-    //             }
-    //         }
-    //         Some(true)
-    //     }
 
     /// 新たなジョブIDを取得
     fn get_new_job_id(&self) -> Option<usize> {
@@ -402,35 +379,27 @@ impl Worker {
         }
         None
     }
-    //     fn get_new_job_id(&self) -> Option<usize> {
-    //         for i in 0..=usize::MAX {
-    //             if !self.jobs.contains_key(&i) {
-    //                 return Some(i);
-    //             }
-    //         }
-    //         None
-    //     }
 
-    //     /// 新たなジョブ情報を追加
-    //     ///
-    //     /// - job_id: ジョブID
-    //     /// - pgid: プロセスグループID
-    //     /// - pids: プロセス
-    //     fn insert_job(&mut self, job_id: usize, pgid: Pid, pids: HashMap<Pid, ProcInfo>, line: &str) {
-    //         assert!(!self.jobs.contains_key(&job_id));
-    //         self.jobs.insert(job_id, (pgid, line.to_string())); // ジョブ情報を追加
+    /// 新たなジョブ情報を追加
+    ///
+    /// - job_id: ジョブID
+    /// - pgid: プロセスグループID
+    /// - pids: プロセス
+    fn insert_job(&mut self, job_id: usize, pgid: Pid, pids: HashMap<Pid, ProcInfo>, line: &str) {
+        assert!(!self.jobs.contains_key(&job_id));
+        self.jobs.insert(job_id, (pgid, line.to_string())); // ジョブ情報を追加
 
-    //         let mut procs = HashSet::new(); // pgid_to_pidsへ追加するプロセス
-    //         for (pid, info) in pids {
-    //             procs.insert(pid);
+        let mut procs = HashSet::new(); // pgid_to_pidsへ追加するプロセス
+        for (pid, info) in pids {
+            procs.insert(pid);
 
-    //             assert!(!self.pid_to_info.contains_key(&pid));
-    //             self.pid_to_info.insert(pid, info); // プロセスの情報を追加
-    //         }
+            assert!(!self.pid_to_info.contains_key(&pid));
+            self.pid_to_info.insert(pid, info); // プロセスの情報を追加
+        }
 
-    //         assert!(!self.pgid_to_pids.contains_key(&pgid));
-    //         self.pgid_to_pids.insert(pgid, (job_id, procs)); // プロセスグループの情報を追加
-    //     }
+        assert!(!self.pgid_to_pids.contains_key(&pgid));
+        self.pgid_to_pids.insert(pgid, (job_id, procs)); // プロセスグループの情報を追加
+    }
 
     /// シェルをフォアグランドに設定
     fn set_shell_fg(&mut self, shell_tx: &SyncSender<ShellMsg>) {
@@ -438,12 +407,6 @@ impl Worker {
         tcsetpgrp(io::stdin().as_fd(), self.shell_pgid).unwrap();
         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
     }
-    //     /// シェルをフォアグラウンドに設定
-    //     fn set_shell_fg(&mut self, shell_tx: &SyncSender<ShellMsg>) {
-    //         self.fg = None;
-    //         tcsetpgrp(libc::STDIN_FILENO, self.shell_pgid).unwrap();
-    //         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
-    //     }
 
     /// ジョブの管理。引数には変化のあったジョブとプロセスグループを指定
     ///
@@ -473,30 +436,6 @@ impl Worker {
             }
         }
     }
-    //     fn manage_job(&mut self, job_id: usize, pgid: Pid, shell_tx: &SyncSender<ShellMsg>) {
-    //         let is_fg = self.fg.map_or(false, |x| pgid == x); // フォアグラウンドのプロセスか？
-    //         let line = &self.jobs.get(&job_id).unwrap().1;
-    //         if is_fg {
-    //             // 状態が変化したプロセスはフォアグラウンド
-    //             if self.is_group_empty(pgid) {
-    //                 // フォアグラウンドプロセスが空の場合、
-    //                 // ジョブ情報を削除しシェルをフォアグラウンドに設定
-    //                 eprintln!("[{job_id}] 終了\t{line}");
-    //                 self.remove_job(job_id);
-    //                 self.set_shell_fg(shell_tx);
-    //             } else if self.is_group_stop(pgid).unwrap() {
-    //                 // フォアグラウンドプロセスがすべて停止中の場合、シェルをフォアグラウンドに設定
-    //                 eprintln!("\n[{job_id}] 停止\t{line}");
-    //                 self.set_shell_fg(shell_tx);
-    //             }
-    //         } else {
-    //             // プロセスグループが空の場合、ジョブ情報を削除
-    //             if self.is_group_empty(pgid) {
-    //                 eprintln!("\n[{job_id}] 終了\t{line}");
-    //                 self.remove_job(job_id);
-    //             }
-    //         }
-    //     }
 
     /// 子プロセスを生成。失敗した場合はシェルからの入力を再開させる必要あり
     fn spawn_child(&mut self, line: &str, cmd: &[(&str, Vec<&str>)]) -> bool {
@@ -520,7 +459,7 @@ impl Worker {
             input = Some(p.0);
             output = Some(p.1);
         }
-        //// moveされたと判定されて使えなくなるのでコメントオフ
+        //// moveされたと判定されて使えなくなるのでコメントアウト
         // let cleanup_pipe = CleanUp {
         //     f: || {
         //         if let Some(fd) = &input {
@@ -547,38 +486,30 @@ impl Worker {
             state: ProcState::Run,
             pgid,
         };
+        let mut pids = HashMap::new();
+        pids.insert(pgid, info.clone()); // 一つめのプロセスの情報
+
+        // 二つめのプロセスを生成
+        if cmd.len() == 2 {
+            match fork_exec(pgid, cmd[1].0, &cmd[1].1, input, None, output) {
+                Ok(child) => {
+                    pids.insert(child, info);
+                }
+                Err(e) => {
+                    eprintln!("ZeroSh: プロセス生成エラー: {e}");
+                    return false;
+                }
+            }
+        }
+        //// クロージャを作った時点でmoveされたと判定されて使えなくなるのでコメントアウト
+        // std::mem::drop(cleanup_pipe); // パイプをクローズ
+        // ジョブ情報を追加し、子プロセスをフォアグラウンドに
+        self.fg = Some(pgid);
+        self.insert_job(job_id, pgid, pids, line);
+        tcsetpgrp(io::stdin().as_fd(), pgid).unwrap();
+
         true
     }
-    //         // プロセス、ジョブの情報を追加
-    //         let info = ProcInfo {
-    //             state: ProcState::Run,
-    //             pgid,
-    //         };
-    //         let mut pids = HashMap::new();
-    //         pids.insert(pgid, info.clone()); // 一つめのプロセスの情報
-
-    //         // 二つめのプロセスを生成
-    //         if cmd.len() == 2 {
-    //             match fork_exec(pgid, cmd[1].0, &cmd[1].1, input, None, output) {
-    //                 Ok(child) => {
-    //                     pids.insert(child, info);
-    //                 }
-    //                 Err(e) => {
-    //                     eprintln!("ZeroSh: プロセス生成エラー: {e}");
-    //                     return false;
-    //                 }
-    //             }
-    //         }
-
-    //         std::mem::drop(cleanup_pipe); // パイプをクローズ
-
-    //         // ジョブ情報を追加し、子プロセスをフォアグラウンドに
-    //         self.fg = Some(pgid);
-    //         self.insert_job(job_id, pgid, pids, line);
-    //         tcsetpgrp(libc::STDIN_FILENO, pgid).unwrap();
-
-    //         true
-    //     }
 
     /// 組み込みコマンドの場合はtrueを返す
     fn built_in_cmd(&mut self, cmd: &[(&str, Vec<&str>)], shell_tx: &SyncSender<ShellMsg>) -> bool {
@@ -597,30 +528,26 @@ impl Worker {
 
     /// カレントディレクトリを変更。引数がない場合は、ホームディレクトリに移動。第2引数以降は無視
     fn run_cd(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
-        false
+        let path = if args.len() == 1 {
+            // 引数が指定されていない場合、ホームディレクトリ配下へ移動
+            dirs::home_dir()
+                .or_else(|| Some(PathBuf::from("/")))
+                .unwrap()
+        } else {
+            PathBuf::from(args[1])
+        };
+
+        // カレントディレクトリを変更
+        if let Err(e) = std::env::set_current_dir(&path) {
+            self.exit_val = 1; // 失敗
+            eprintln!("cdに失敗: {e}");
+        } else {
+            self.exit_val = 0; // 成功
+        }
+
+        shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
+        true
     }
-    //     /// カレントディレクトリを変更。引数がない場合は、ホームディレクトリに移動。第2引数以降は無視
-    //     fn run_cd(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
-    //         let path = if args.len() == 1 {
-    //             // 引数が指定されていない場合、ホームディレクトリか/へ移動
-    //             dirs::home_dir()
-    //                 .or_else(|| Some(PathBuf::from("/")))
-    //                 .unwrap()
-    //         } else {
-    //             PathBuf::from(args[1])
-    //         };
-
-    //         // カレントディレクトリを変更
-    //         if let Err(e) = std::env::set_current_dir(&path) {
-    //             self.exit_val = 1; // 失敗
-    //             eprintln!("cdに失敗: {e}");
-    //         } else {
-    //             self.exit_val = 0; // 成功
-    //         }
-
-    //         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
-    //         true
-    //     }
 
     /// exitコマンドを実行
     ///
