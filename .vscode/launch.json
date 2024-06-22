@@ -66,6 +66,44 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'playground'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=playground",
+                    "--package=playground@0.1.0"
+                ],
+                "filter": {
+                    "name": "playground",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'playground'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=playground",
+                    "--package=playground@0.1.0"
+                ],
+                "filter": {
+                    "name": "playground",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
         }
-    ]
+     ]
 }
