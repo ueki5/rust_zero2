@@ -668,7 +668,7 @@ where
 /// pgidが0の場合は子プロセスのPIDが、プロセスグループIDとなる
 ///
 /// - inputがSome(fd)の場合は、標準入力をfdと設定
-/// - outputSome(fd)の場合は、標準出力をfdと設定
+/// - outputがSome(fd)の場合は、標準出力をfdと設定
 /// - fd_closeがSome(fd)の場合は、fork後にfdをクローズ
 fn fork_exec(
     pgid: Pid,
