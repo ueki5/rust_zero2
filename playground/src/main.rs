@@ -11,6 +11,8 @@ fn main() {
     let p = pipe().unwrap();
     input = Some(p.0);
     output = Some(p.1);
+    let infd = input.unwrap();
+    let binfd = infd.as_fd();
     println!("!!!");
 
     // ファイル操作

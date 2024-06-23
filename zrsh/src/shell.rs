@@ -17,6 +17,8 @@ use signal_hook::{consts::*, iterator::Signals};
 use std::ffi::CStr;
 use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
+use std::os::fd::BorrowedFd;
+use std::os::fd::IntoRawFd;
 use std::{
     borrow::Borrow,
     collections::{BTreeMap, HashMap, HashSet},
@@ -459,7 +461,7 @@ impl Worker {
             input = Some(p.0);
             output = Some(p.1);
         }
-        //// moveされたと判定されて使えなくなるのでコメントアウト
+        //// I/Oの生ハンドルが所有権に基づいて管理できるようになったため、カット
         // let cleanup_pipe = CleanUp {
         //     f: || {
         //         if let Some(fd) = &input {
@@ -472,7 +474,7 @@ impl Worker {
         // };
         let pgid;
         // 一つ目のプロセスを作成
-        match fork_exec(Pid::from_raw(0), cmd[0].0, &cmd[0].1, None, output, input) {
+        match fork_exec(Pid::from_raw(0), cmd[0].0, &cmd[0].1, &None, &output, &input) {
             Ok(child) => {
                 pgid = child;
             }
@@ -491,7 +493,7 @@ impl Worker {
 
         // 二つめのプロセスを生成
         if cmd.len() == 2 {
-            match fork_exec(pgid, cmd[1].0, &cmd[1].1, input, None, output) {
+            match fork_exec(pgid, cmd[1].0, &cmd[1].1, &input, &None, &output) {
                 Ok(child) => {
                     pids.insert(child, info);
                 }
@@ -501,7 +503,7 @@ impl Worker {
                 }
             }
         }
-        //// クロージャを作った時点でmoveされたと判定されて使えなくなるのでコメントアウト
+        //// I/Oの生ハンドルが所有権に基づいて管理できるようになったため、カット
         // std::mem::drop(cleanup_pipe); // パイプをクローズ
         // ジョブ情報を追加し、子プロセスをフォアグラウンドに
         self.fg = Some(pgid);
@@ -561,94 +563,72 @@ impl Worker {
             shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap();
             return true;
         }
+        // 終了コードを取得
+        let exit_val = if let Some(s) = args.get(1) {
+            if let Ok(n) = (*s).parse::<i32>() {
+                n
+            } else {
+                // 終了コードか整数ではない
+                eprintln!("{s}は不正な引数です");
+                self.exit_val = 1; // 失敗
+                shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
+                return true;
+            }
+        } else {
+            self.exit_val
+        };
+
+        shell_tx.send(ShellMsg::Quit(exit_val)).unwrap(); // シェルを終了
         true
     }
-    //     /// exitコマンドを実行
-    //     ///
-    //     /// 第1引数が指定された場合、それを終了コードとしてシェルを終了。
-    //     /// 引数がない場合は、最後に終了したプロセスの終了コードとしてシェルを終了。
-    //     fn run_exit(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
-    //         // 実行中のジョブがある場合は終了しない
-    //         if !self.jobs.is_empty() {
-    //             eprintln!("ジョブが実行中なので終了できません");
-    //             self.exit_val = 1; // 失敗
-    //             shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
-    //             return true;
-    //         }
 
-    //         // 終了コードを取得
-    //         let exit_val = if let Some(s) = args.get(1) {
-    //             if let Ok(n) = (*s).parse::<i32>() {
-    //                 n
-    //             } else {
-    //                 // 終了コードか整数ではない
-    //                 eprintln!("{s}は不正な引数です");
-    //                 self.exit_val = 1; // 失敗
-    //                 shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
-    //                 return true;
-    //             }
-    //         } else {
-    //             self.exit_val
-    //         };
-
-    //         shell_tx.send(ShellMsg::Quit(exit_val)).unwrap(); // シェルを終了
-    //         true
-    //     }
 
     /// jobsコマンドを実行
-    fn run_jobs(&mut self, shell_tx: &SyncSender<ShellMsg>) -> bool {
-        false
+    fn run_jobs(&mut self, shell_tx: &SyncSender<ShellMsg>) -> bool { 
+        for (job_id, (pgid, cmd)) in &self.jobs {
+            let state = if self.is_group_stop(*pgid).unwrap() {
+                "停止中"
+            } else {
+                "実行中"
+            };
+            println!("[{job_id}] {state}\t{cmd}");
+        }
+        self.exit_val = 0; // 成功
+        shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
+        true
     }
-    //     /// jobsコマンドを実行
-    //     fn run_jobs(&mut self, shell_tx: &SyncSender<ShellMsg>) -> bool {
-    //         for (job_id, (pgid, cmd)) in &self.jobs {
-    //             let state = if self.is_group_stop(*pgid).unwrap() {
-    //                 "停止中"
-    //             } else {
-    //                 "実行中"
-    //             };
-    //             println!("[{job_id}] {state}\t{cmd}")
-    //         }
-    //         self.exit_val = 0; // 成功
-    //         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
-    //         true
-    //     }
 
     /// fgコマンドを実行
     fn run_fg(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
-        false
+        self.exit_val = 1; // とりあえず失敗に設定
+
+        // 引数をチェック
+        if args.len() < 2 {
+            eprintln!("usage: fg 数字");
+            shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
+            return true;
+        }
+
+        // ジョブIDを取得
+        if let Ok(n) = args[1].parse::<usize>() {
+            if let Some((pgid, cmd)) = self.jobs.get(&n) {
+                eprintln!("[{n}] 再開\t{cmd}");
+
+                // フォアグラウンドプロセスに設定
+                self.fg = Some(*pgid);
+                tcsetpgrp(io::stdin(), *pgid).unwrap();
+
+                // ジョブの実行を再開
+                killpg(*pgid, Signal::SIGCONT).unwrap();
+                return true;
+            }
+        }
+
+        // 失敗
+        eprintln!("{}というジョブは見つかりませんでした", args[1]);
+        shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
+        true
     }
-    //     /// fgコマンドを実行
-    //     fn run_fg(&mut self, args: &[&str], shell_tx: &SyncSender<ShellMsg>) -> bool {
-    //         self.exit_val = 1; // とりあえず失敗に設定
-
-    //         // 引数をチェック
-    //         if args.len() < 2 {
-    //             eprintln!("usage: fg 数字");
-    //             shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
-    //             return true;
-    //         }
-
-    //         // ジョブIDを取得
-    //         if let Ok(n) = args[1].parse::<usize>() {
-    //             if let Some((pgid, cmd)) = self.jobs.get(&n) {
-    //                 eprintln!("[{n}] 再開\t{cmd}");
-
-    //                 // フォアグラウンドプロセスに設定
-    //                 self.fg = Some(*pgid);
-    //                 tcsetpgrp(libc::STDIN_FILENO, *pgid).unwrap();
-
-    //                 // ジョブの実行を再開
-    //                 killpg(*pgid, Signal::SIGCONT).unwrap();
-    //                 return true;
-    //             }
-    //         }
-
-    //         // 失敗
-    //         eprintln!("{}というジョブは見つかりませんでした", args[1]);
-    //         shell_tx.send(ShellMsg::Continue(self.exit_val)).unwrap(); // シェルを再開
-    //         true
-    //     }
 }
 
 /// システムコール呼び出しのラッパ。EINTRならリトライ
@@ -674,9 +654,9 @@ fn fork_exec(
     pgid: Pid,
     filename: &str,
     args: &[&str],
-    input: Option<OwnedFd>,
-    output: Option<OwnedFd>,
-    fd_close: Option<OwnedFd>,
+    input: &Option<OwnedFd>,
+    output: &Option<OwnedFd>,
+    fd_close: &Option<OwnedFd>,
 ) -> Result<Pid, DynError> {
     let filename = CString::new(filename).unwrap();
     let args: Vec<CString> = args.iter().map(|s| CString::new(*s).unwrap()).collect();
@@ -685,52 +665,40 @@ fn fork_exec(
         ForkResult::Parent { child, .. } => {
             // 子プロセスのプロセスグループIDをpgidに設定
             setpgid(child, pgid).unwrap();
+            Ok(child)
+        },
+        ForkResult::Child => {
+            // 子プロセスのプロセスグループIDをpgidに設定
+            setpgid(Pid::from_raw(0), pgid).unwrap();
+
+            if let Some(fd) = fd_close {
+                syscall(|| unistd::close(fd.as_raw_fd())).unwrap();
+            }
+
+            // 標準入出力を設定
+            if let Some(infd) = input {
+                syscall(|| dup2(infd.as_raw_fd(), io::stdin().as_raw_fd())).unwrap();
+            }
+            if let Some(outfd) = output {
+                syscall(|| dup2(outfd.as_raw_fd(), io::stdout().as_raw_fd())).unwrap();
+            }
+
+            // signal_hookで利用されるUNIXドメインソケットとpipeをクローズ
+            for i in 3..=6 {
+                let _ = syscall(|| unistd::close(i));
+            }
+
+            // 実行ファイルをメモリに読み込み
+            match execvp(&filename, &args) {
+                Err(_) => {
+                    unistd::write(io::stderr(), "不明なコマンドを実行\n".as_bytes()).ok();
+                    exit(1);
+                }
+                Ok(_) => unreachable!(),
+            }
         }
-        _ => return Ok(pgid),
     }
-    return Ok(pgid);
 }
-//     let filename = CString::new(filename).unwrap();
-//     let args: Vec<CString> = args.iter().map(|s| CString::new(*s).unwrap()).collect();
-
-//     match syscall(|| unsafe { fork() })? {
-//         ForkResult::Parent { child, .. } => {
-//             // 子プロセスのプロセスグループIDをpgidに設定
-//             setpgid(child, pgid).unwrap();
-//             Ok(child)
-//         }
-//         ForkResult::Child => {
-//             // 子プロセスのプロセスグループIDをpgidに設定
-//             setpgid(Pid::from_raw(0), pgid).unwrap();
-
-//             if let Some(fd) = fd_close {
-//                 syscall(|| unistd::close(fd)).unwrap();
-//             }
-
-//             // 標準入出力を設定
-//             if let Some(infd) = input {
-//                 syscall(|| dup2(infd, libc::STDIN_FILENO)).unwrap();
-//             }
-//             if let Some(outfd) = output {
-//                 syscall(|| dup2(outfd, libc::STDOUT_FILENO)).unwrap();
-//             }
-
-//             // signal_hookで利用されるUNIXドメインソケットとpipeをクローズ
-//             for i in 3..=6 {
-//                 let _ = syscall(|| unistd::close(i));
-//             }
-
-//             // 実行ファイルをメモリに読み込み
-//             match execvp(&filename, &args) {
-//                 Err(_) => {
-//                     unistd::write(libc::STDERR_FILENO, "不明なコマンドを実行\n".as_bytes()).ok();
-//                     exit(1);
-//                 }
-//                 Ok(_) => unreachable!(),
-//             }
-//         }
-//     }
-// }
 
 /// スペースでsplit
 fn parse_cmd_one(line: &str) -> Result<(&str, Vec<&str>), DynError> {
