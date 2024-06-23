@@ -461,7 +461,7 @@ impl Worker {
             input = Some(p.0);
             output = Some(p.1);
         }
-        //// I/Oの生ハンドルが所有権に基づいて管理できるようになったため、カット
+        //// I/Oの生ハンドルが所有権に基づいて管理されるようになったため、カット
         // let cleanup_pipe = CleanUp {
         //     f: || {
         //         if let Some(fd) = &input {
@@ -503,7 +503,7 @@ impl Worker {
                 }
             }
         }
-        //// I/Oの生ハンドルが所有権に基づいて管理できるようになったため、カット
+        //// I/Oの生ハンドルが所有権に基づいて管理されるようになったため、カット
         // std::mem::drop(cleanup_pipe); // パイプをクローズ
         // ジョブ情報を追加し、子プロセスをフォアグラウンドに
         self.fg = Some(pgid);
