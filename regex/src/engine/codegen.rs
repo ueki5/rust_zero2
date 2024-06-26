@@ -105,15 +105,15 @@ impl Generator {
         // split L1, L2
         let split_addr = self.pc;
         self.insts.push(Instruction::Split(self.pc + 1, 0)); //L2を0で仮置き
-        self.inc_pc();
+        self.inc_pc()?;
 
         // L1: e1のコード
-        self.gen_expr(e1);
+        self.gen_expr(e1)?;
 
         // jmp L3
         let jump_addr = self.pc;
         self.insts.push(Instruction::Jump(0)); //L3を0で仮置き
-        self.inc_pc();
+        self.inc_pc()?;
 
         // L2を再設定
         if let Some(Instruction::Split(_, l2)) = self.insts.get_mut(split_addr) {
@@ -123,7 +123,7 @@ impl Generator {
         }
 
         // L2: e2のコード
-        self.gen_expr(e2);
+        self.gen_expr(e2)?;
 
         // L3を再設定
         if let Some(Instruction::Jump(l3)) = self.insts.get_mut(jump_addr) {

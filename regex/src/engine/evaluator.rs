@@ -1,6 +1,5 @@
 //! 命令列と入力文字列を受け取り、マッチングを行う
 use super::Instruction;
-use crate::helper::safe_add;
 use std::{
     collections::VecDeque,
     error::Error,
@@ -11,7 +10,6 @@ use std::{
 pub enum EvalError {
     PCOverFlow,
     SPOverFlow,
-    InvalidPC,
     InvalidContext,
 }
 
@@ -88,7 +86,7 @@ pub fn eval(insts: &[Instruction], line: &[char], is_depth: bool) -> Result<Stri
             };
             match result {
                 Some((pc, sp)) => {
-                    if let Ok(r) = _eval(insts, line, pc, sp, is_depth, &mut v, &mut ans) {}
+                    if let Ok(_) = _eval(insts, line, pc, sp, is_depth, &mut v, &mut ans) {}
                 }
                 _ => break,
             }

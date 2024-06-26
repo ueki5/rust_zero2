@@ -1,26 +1,20 @@
 use crate::helper::DynError;
-use nix::errno::Errno;
 use nix::unistd::getpgid as getpgid2;
 use nix::unistd::getpid as getpid2;
 use nix::{
-    libc::{self, getpgid, getpid},
     sys::{
         signal::{killpg, signal, SigHandler, Signal},
         wait::{waitpid, WaitPidFlag, WaitStatus},
     },
     unistd::{
-        self, dup2, execvp, fork, getppid, pipe, setpgid, tcgetpgrp, tcsetpgrp, ForkResult, Pid,
+        self, dup2, execvp, fork, pipe, setpgid, tcsetpgrp, ForkResult, Pid,
     },
 };
-use rustyline::{error::ReadlineError, DefaultEditor, Editor};
+use rustyline::{error::ReadlineError, DefaultEditor};
 use signal_hook::{consts::*, iterator::Signals};
-use std::ffi::CStr;
 use std::os::fd::AsFd;
 use std::os::fd::AsRawFd;
-use std::os::fd::BorrowedFd;
-use std::os::fd::IntoRawFd;
 use std::{
-    borrow::Borrow,
     collections::{BTreeMap, HashMap, HashSet},
     ffi::CString,
     fs::File,
@@ -78,13 +72,12 @@ impl Shell {
     pub fn run(&self) -> Result<(), DynError> {
         unsafe { signal(Signal::SIGTTOU, SigHandler::SigIgn).unwrap() };
         let mut rl = DefaultEditor::new()?;
-        if let path = Path::new(&self.logfile) {
-            if !&path.is_file() {
-                let mut file = match File::create(&self.logfile) {
-                    Ok(file) => (),
-                    Err(e) => eprintln!("ZeroSh: ヒストリファイルの作成に失敗: {e}"),
-                };
-            }
+        let path = Path::new(&self.logfile);
+        if !&path.is_file() {
+            match File::create(&self.logfile) {
+                Err(e) => eprintln!("ZeroSh: ヒストリファイルの作成に失敗: {e}"),
+                _ => (),
+            };
         }
         if let Err(e) = rl.load_history(&self.logfile) {
             eprintln!("ZeroSh: ヒストリファイルの読み込みに失敗: {e}");
@@ -115,10 +108,10 @@ impl Shell {
                     if line_trimed.is_empty() {
                         continue; // 空白のコマンドの場合は再読み込み
                     } else {
-                        rl.add_history_entry(line_trimed); // ヒストリーファイルに追加
+                        rl.add_history_entry(line_trimed)?; // ヒストリーファイルに追加
                     }
 
-                    rl.add_history_entry(line_trimed); // ヒストリーファイルに追加
+                    rl.add_history_entry(line_trimed)?; // ヒストリーファイルに追加
                     worker_tx
                         .send(WorkerMsg::Cmd(line_trimed.to_string()))
                         .unwrap(); // workerに送信
@@ -351,7 +344,7 @@ impl Worker {
     /// ジョブ情報を削除し、関連するプロセスグループの情報も削除
     fn remove_job(&mut self, job_id: usize) {
         if let Some((pgid, _)) = self.jobs.remove(&job_id) {
-            if let Some((_, pids)) = self.jobs.remove(&job_id) {
+            if let Some((_, pids)) = self.pgid_to_pids.remove(&pgid) {
                 assert!(pids.is_empty()); // ジョブを削除するときはプロセスグループは空のはず
             }
         }
@@ -479,7 +472,7 @@ impl Worker {
                 pgid = child;
             }
             Err(e) => {
-                eprintln!("ZeroShell: プロセス生成エラー");
+                eprintln!("ZeroShell: プロセス生成エラー({e:?})");
                 return false;
             }
         }

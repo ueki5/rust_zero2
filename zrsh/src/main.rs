@@ -1,27 +1,4 @@
 // 確認用
-use nix::{
-    libc,
-    sys::{
-        signal::{killpg, signal, SigHandler, Signal},
-        wait::{waitpid, WaitPidFlag, WaitStatus},
-    },
-    unistd::{self, dup2, execvp, fork, pipe, setpgid, tcgetpgrp, tcsetpgrp, ForkResult, Pid},
-};
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    ffi::CString,
-    fs::File,
-    mem::replace,
-    path::Path,
-    path::PathBuf,
-    process::exit,
-    sync::mpsc::{channel, sync_channel, Receiver, Sender, SyncSender},
-    thread,
-    io,
-};
-use std::os::fd::AsFd;
-use std::os::fd::AsRawFd;
-// 確認用
 mod helper;
 mod shell;
 

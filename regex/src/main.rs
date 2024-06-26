@@ -2,7 +2,6 @@ mod engine;
 mod helper;
 
 use clap::{Parser, ValueEnum};
-use engine::{do_matching, print};
 use helper::DynError;
 use std::{
     fs::File,

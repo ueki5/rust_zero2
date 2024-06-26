@@ -102,7 +102,7 @@ pub fn parse(expr: &str) -> Result<AST, ParseError> {
                         stack.push((prev, prev_or));
                     }
                     elm::RPAR => {
-                        if let Some((mut prev, mut prev_or)) = stack.pop() {
+                        if let Some((mut prev, prev_or)) = stack.pop() {
                             if !seq.is_empty() {
                                 seq_or.push(AST::Seq(seq));
                             }

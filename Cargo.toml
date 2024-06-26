@@ -1,6 +1,11 @@
 [workspace]
 resolver = "2"
 
-members = [ "playground",
-    "regex", "zrsh",
+members = [ 
+    "playground",
+    "regex",
+    "zrsh",
+    "zdbg",
+    "dbg_target",
+    "ackerman",
 ]
